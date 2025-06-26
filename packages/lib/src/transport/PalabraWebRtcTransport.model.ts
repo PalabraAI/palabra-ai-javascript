@@ -2,7 +2,7 @@ import { AllowedMessageTypes } from '~/config/PipelineConfig.model';
 import { ConnectionState, RemoteParticipant, TrackPublishOptions } from 'livekit-client';
 import { PipelineConfigManager } from '~/config/PipelineConfigManager';
 import { filterErrorData, filterPartialTranscriptionData, filterPartialTranslatedTranscriptionData, filterPipelineTimingsData, filterTranscriptionData, filterTranslationData } from '~/utils/data-filters';
-export interface PalabraWebRtcTransportConstructor{
+export interface PalabraWebRtcTransportConstructor {
   streamUrl: string;
   accessToken: string;
   inputStream: MediaStream;

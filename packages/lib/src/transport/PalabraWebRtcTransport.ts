@@ -158,7 +158,7 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
     this.room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: TrackPublication, participant: RemoteParticipant) => {
       console.log(`🎵 Track subscribed: ${publication.trackName} ${publication.trackSid}`, track.sid, track, 'from', participant.identity);
       if (track.kind === Track.Kind.Audio) {
-        this.handleRemoteAudioTrack(track, publication,  participant);
+        this.handleRemoteAudioTrack(track, publication, participant);
       }
     });
 
@@ -181,7 +181,7 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
       try {
         const decoder = new TextDecoder();
         const message = decoder.decode(payload);
-        const data:DataReceivedEventPayload = JSON.parse(message);
+        const data: DataReceivedEventPayload = JSON.parse(message);
         this.handleTranslationData(data, participant, topic);
       } catch (error) {
         console.error('❌ Failed to parse data message:', error, 'Raw payload:', payload);
