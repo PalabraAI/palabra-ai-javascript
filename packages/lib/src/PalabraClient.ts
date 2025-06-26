@@ -149,13 +149,13 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     this.sessionData = null;
   }
 
-  public async setTranslateFrom(code:PalabraClientData['translateFrom']) {
+  public async setTranslateFrom(code: PalabraClientData['translateFrom']) {
     this.translateFrom = code;
     this.configManager.setSourceLanguage(code as SourceLangCode);
     await this.transport.setTask(this.configManager.getConfig());
   }
 
-  public async setTranslateTo(code:PalabraClientData['translateTo']) {
+  public async setTranslateTo(code: PalabraClientData['translateTo']) {
     this.translateTo = code;
 
     this.configManager.getConfig().pipeline.translations

@@ -15,7 +15,7 @@ export interface PalabraClientData {
   translateFrom: SourceLangCode;
   translateTo: TargetLangCode;
   handleOriginalTrack: () => Promise<MediaStreamTrack>;
-  transportType?: 'webrtc';
+  transportType?: 'webrtc'; // TODO: add websocket transport | 'websocket'
   apiBaseUrl?: string;
 }
 
