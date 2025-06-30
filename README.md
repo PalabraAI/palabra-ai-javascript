@@ -1,4 +1,4 @@
-# @palabra-ai/translator
+# <a href="https://palabra.ai"><img src="https://avatars.githubusercontent.com/u/199107821?s=32" alt="Palabra AI" align="center"></a> Palabra AI Typescript Library
 
 🌍 A TypeScript library for Palabra AI's real-time speech-to-speech translation API.
 🚀 Break down language barriers and enable seamless communication across 25+ languages.
