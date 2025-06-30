@@ -85,12 +85,12 @@ See TypeScript types for full API documentation.
 
 ## PalabraClient
 
-The `PalabraClient` is the main entry point for integration with the Palabra API.
+The `PalabraClient` class is the main entry point for integration with the Palabra API.
 It manages connection setup, session lifecycle, audio handling, transcription and translation events, and playback of translated speech.
 
 ### Features
 
-Key features of the `PalabraClient` class:
+Key features of `PalabraClient`:
 * Connects to the Palabra API
 * Manages translation sessions
 * Manages language settings
@@ -259,7 +259,7 @@ const startPlayback = () => {
 
 ---
 
-Use these examples to integrate Palabra's real-time translation into any web application and control audio output as needed.
+The examples below demonstrate how to integrate Palabra's real-time translation into any web application and control audio output as needed.
 
 ## Monorepo Structure
 ## Development Setup
@@ -271,8 +271,8 @@ This project contains two main packages:
 
 ### Prerequisites
 
-- Node.js (latest LTS version recommended)
-- `pnpm` (package manager)
+- [Node.js](https://nodejs.org/en) (latest LTS version recommended)
+- [pnpm](https://pnpm.io/)
 
 ### Installation
 
