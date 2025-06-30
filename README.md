@@ -1,17 +1,17 @@
 # @palabra-ai/translator
 
-A TypeScript library for Palabra AI's real-time speech-to-speech translation API.
-Break down language barriers and enable seamless communication across 25+ languages.
+🌍 A TypeScript library for Palabra AI's real-time speech-to-speech translation API.
+🚀 Break down language barriers and enable seamless communication across 25+ languages.
 
-## Overview
+## Overview 📋
 
-The `@palabra-ai/translator` TypeScript library enables you to integrate real-time speech translation into your Web applications.
+🎯 The `@palabra-ai/translator` TypeScript library enables you to integrate real-time speech translation into your Web applications.
 Whether you're building a new application, enhancing an existing product, or streamlining business processes, this library has the tools you need.
 With Palabra AI, you can:
 
-* Translate live speech in real time, to making conversations smooth and natural
-* Preserve the original speaker's voice and tone in translated speech
-* Convert spoken language instantly into accurate, readable text — great for captions, accessibility, and analysis
+* ⚡ Translate live speech in real time, making conversations smooth and natural
+* 🎙️ Preserve the original speaker's voice and tone in translated speech
+* 🔄 Convert spoken language instantly into accurate, readable text — great for captions, accessibility, and analysis
 
 ## Installation
 
@@ -28,7 +28,7 @@ yarn add @palabra-ai/translator
 - A modern web browser (uses WebRTC and Web Audio APIs)
 - [Palabra API credentials](https://docs.palabra.ai/docs/auth/obtaining_api_keys)
 
-## Quickstart
+## Quick Start
 Follow the steps below to run your first translation using Palabra AI's TypeScript library.
 
 ### 1. Get a local audio track
