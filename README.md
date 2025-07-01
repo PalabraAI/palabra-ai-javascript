@@ -172,18 +172,18 @@ client.on(EVENT_REMOTE_TRACKS_UPDATE, (tracksData) => {
 ```
 
 `EVENT_REMOTE_TRACKS_UPDATE` - An update has occurred to the set of remote audio tracks. (Use this event to access new audio streams.)  
-`EVENT_ROOM_CONNECTED` - The WebRTC room connection was established.
-`EVENT_ROOM_DISCONNECTED` - The WebRTC room connection closed or lost.
+`EVENT_ROOM_CONNECTED` - The WebRTC room connection was established.  
+`EVENT_ROOM_DISCONNECTED` - The WebRTC room connection closed or lost.  
 `EVENT_CONNECTION_STATE_CHANGED` - The connection state has changed (e.g., connecting, connected, disconnected).  
 `EVENT_DATA_RECEIVED` - Custom data or messages have been received from the server via the WebRTC data channel.   
 `EVENT_START_TRANSLATION` - The translation process has started.  
-`EVENT_STOP_TRANSLATION` – The translation process has stopped.
-`EVENT_TRANSCRIPTION_RECEIVED` - The full transcription (recognized text) of the source audio has been received.
-`EVENT_TRANSLATION_RECEIVED` - The full, written translation of the source audio has been received.
+`EVENT_STOP_TRANSLATION` – The translation process has stopped.  
+`EVENT_TRANSCRIPTION_RECEIVED` - The full transcription (recognized text) of the source audio has been received.  
+`EVENT_TRANSLATION_RECEIVED` - The full, written translation of the source audio has been received.  
 `EVENT_PARTIAL_TRANSLATED_TRANSCRIPTION_RECEIVED` - A partial translation of the transcription has been received.  
-`EVENT_PARTIAL_TRANSCRIPTION_RECEIVED` - A partial transcription has been received. (Useful for real-time updates.)
+`EVENT_PARTIAL_TRANSCRIPTION_RECEIVED` - A partial transcription has been received. (Useful for real-time updates.)  
 `EVENT_PIPELINE_TIMINGS_RECEIVED` - Timing or performance data about the translation pipeline has been received. (Useful for diagnostics and/or analytics.)  
-`EVENT_ERROR_RECEIVED` - An error in the translation or streaming process has occurred.
+`EVENT_ERROR_RECEIVED` - An error in the translation or streaming process has occurred.  
 
 ## Usage Examples
 
