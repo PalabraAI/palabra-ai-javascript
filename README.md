@@ -1,4 +1,4 @@
-# <a href="https://palabra.ai"><img src="https://avatars.githubusercontent.com/u/199107821?s=32" alt="Palabra AI" align="center"></a> Palabra AI Typescript Library
+# <a href="https://palabra.ai"><img src="https://avatars.githubusercontent.com/u/199107821?s=32" alt="Palabra AI" align="center"></a> Palabra AI TypeScript Library
 
 🌍 A TypeScript library for Palabra AI's real-time speech-to-speech translation API.
 🚀 Break down language barriers and enable seamless communication across 25+ languages.
@@ -77,7 +77,7 @@ await client.stopTranslation();
 > [!NOTE]
 > Browsers may restrict audio playback initiated without user interaction.
 > Each browser may also define user interaction differently.
-> (For example, Safari on iOS is very restrictive.)
+> (For example, Safari on iOS is restrictive.)
 
 ## API Reference
 
@@ -134,7 +134,7 @@ new PalabraClient(options: PalabraClientData)
   Changes the target language for translation on the fly.
 
 - `addTranslationTarget(langCode: TargetLangCode): Promise<void>`  
-  Adds an additional target language for translation.
+  Adds a target language for translation.
 
 - `removeTranslationTarget(langCode: TargetLangCode | TargetLangCode[]): Promise<void>`  
   Removes one or more target languages from translation.
@@ -259,7 +259,7 @@ const startPlayback = () => {
 
 ---
 
-The examples below demonstrate how to integrate Palabra's real-time translation into any web application and control audio output as needed.
+The examples below show how to integrate Palabra's real-time translation into any web application and control audio output as needed.
 
 ## Monorepo Structure
 ## Development Setup
@@ -284,8 +284,7 @@ pnpm install
 ### Running in Development Mode
 #### Library Development
 
-Run the library in watch mode:
-*(In watch mode the library auto-rebuilds on changes)*
+Run the library in watch mode (auto-rebuild on changes):
 
 ```bash
 cd packages/lib
