@@ -1,4 +1,13 @@
-import { LocalAudioTrack, Room, RoomEvent, Track, RemoteParticipant, RemoteTrack, TrackPublication, TrackPublishOptions } from 'livekit-client';
+import {
+  LocalAudioTrack,
+  Room,
+  RoomEvent,
+  Track,
+  RemoteParticipant,
+  TrackPublication,
+  TrackPublishOptions,
+  RemoteAudioTrack,
+} from 'livekit-client';
 import { RealtimeTransport } from '~/transport/RealtimeTransport.model';
 import {
   DataReceivedEventPayload,
@@ -28,7 +37,14 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
   constructor(data: PalabraWebRtcTransportConstructor) {
     super();
 
-    this.room = new Room();
+    const roomOptions = data.audioContext ? {
+      webAudioMix: {
+        audioContext: data.audioContext,
+      },
+    } : undefined;
+
+    this.room = new Room(roomOptions);
+
     this.streamUrl = data.streamUrl;
     this.accessToken = data.accessToken;
     this.inputStream = data.inputStream;
@@ -48,12 +64,13 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
     this.setupRoomEventHandlers();
   }
 
-  private handleRemoteAudioTrack(track: RemoteTrack, publication: TrackPublication, participant: RemoteParticipant): void {
+  private handleRemoteAudioTrack(track: RemoteAudioTrack, publication: TrackPublication, participant: RemoteParticipant): void {
     try {
       console.log('handleRemoteAudioTrack >>>>>> participant', participant, publication);
       console.log('we set sid', track.sid);
 
       this.remoteTracks.set(track.sid, {
+        remoteAudioTrack: track,
         track: track.mediaStreamTrack,
         language: publication.trackName?.split('_')[1] || 'unknown',
         participant: participant.identity,
@@ -73,9 +90,9 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
 
       await this.room.connect(this.streamUrl, this.accessToken, { autoSubscribe: true });
 
-      await this.setTask(this.configManager.getConfig());
-
       await this.publishInputAudio();
+
+      await this.setTask(this.configManager.getConfig());
 
       console.log('✅ Successfully connected and published audio');
     } catch (error) {
@@ -112,7 +129,7 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
 
   private createHashForAllowedMessageTypes(allowedMessageTypes: AllowedMessageTypes[]): void {
     allowedMessageTypes.forEach(type => {
-      this.allowedMessageTypesHash.set(type, this.allowedMessageTypesHash.get(type) || 0 + 1);
+      this.allowedMessageTypesHash.set(type, 1);
     });
   }
 
@@ -155,14 +172,14 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
       this.removeRemoteAudioSourceByParticipant(participant.identity);
     });
 
-    this.room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: TrackPublication, participant: RemoteParticipant) => {
+    this.room.on(RoomEvent.TrackSubscribed, (track: RemoteAudioTrack, publication: TrackPublication, participant: RemoteParticipant) => {
       console.log(`🎵 Track subscribed: ${publication.trackName} ${publication.trackSid}`, track.sid, track, 'from', participant.identity);
       if (track.kind === Track.Kind.Audio) {
         this.handleRemoteAudioTrack(track, publication, participant);
       }
     });
 
-    this.room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication: TrackPublication, participant: RemoteParticipant) => {
+    this.room.on(RoomEvent.TrackUnsubscribed, (track: RemoteAudioTrack, publication: TrackPublication, participant: RemoteParticipant) => {
       console.log(`🔇 Track unsubscribed: ${publication.trackName} ${publication.trackSid} ${track.sid} ${track.kind} from ${participant.identity}`);
       if (track.kind === Track.Kind.Audio) {
         this.removeRemoteAudioSourceBySid(track.sid);

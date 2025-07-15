@@ -1,12 +1,12 @@
 import { ClientCredentialsAuth, UserTokenAuth } from '~/PalabraClient.model';
-import { ApiResponse, SessionResponse, CreateSessionPayload } from './api.model';
+import { ApiResponse, SessionResponse, CreateSessionPayload, SessionListResponse } from './api.model';
 
 export class PalabraApiClient {
   private baseUrl: string;
   private readonly clientId: string;
   private readonly clientSecret: string;
 
-  constructor(auth: ClientCredentialsAuth | UserTokenAuth, baseUrl?: string) {
+  constructor(auth: ClientCredentialsAuth | UserTokenAuth, baseUrl = 'https://api.palabra.ai') {
     this.baseUrl = baseUrl;
     this.clientId = 'clientId' in auth ? auth.clientId : '';
     this.clientSecret = 'clientSecret' in auth ? auth.clientSecret : '';
@@ -28,32 +28,27 @@ export class PalabraApiClient {
      * createStreamingSession implements Step 2 of the Palabra Quick Start Guide: Creating a Streaming Session.
      * Documentation Reference: https://docs.palabra.ai/docs/quick-start#step-2-create-a-streaming-session
      */
-  createStreamingSession = async (): Promise<ApiResponse<SessionResponse> | null> => {
-    try {
-      const payload: CreateSessionPayload = {
-        data: {
-          publisher_count: 1,
-          subscriber_count: 0,
-          publisher_can_subscribe: true,
-        },
-      };
+  createStreamingSession = async (): Promise<ApiResponse<SessionResponse>> => {
+    const payload: CreateSessionPayload = {
+      data: {
+        publisher_count: 1,
+        subscriber_count: 0,
+        publisher_can_subscribe: true,
+      },
+    };
 
-      const response = await fetch(`${this.baseUrl}/session-storage/session`, {
-        method: 'POST',
-        headers: this.baseHeaders(),
-        body: JSON.stringify(payload),
-      });
+    const response = await fetch(`${this.baseUrl}/session-storage/session`, {
+      method: 'POST',
+      headers: this.baseHeaders(),
+      body: JSON.stringify(payload),
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+    const data: ApiResponse<SessionResponse> = await response.json();
 
-      const data: ApiResponse<SessionResponse> = await response.json();
-      return data;
-    } catch (e) {
-      console.error(e);
-      return null;
+    if (!data.ok) {
+      throw new Error(`${JSON.stringify(data.errors)}`);
     }
+    return data;
   };
 
   deleteStreamingSession = async (sessionId: string): Promise<ApiResponse<void> | null> => {
@@ -66,6 +61,23 @@ export class PalabraApiClient {
         method: 'DELETE',
         headers: this.baseHeaders(),
       });
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  };
+
+  fetchActiveSessions = async (): Promise<ApiResponse<SessionListResponse> | null> => {
+    try {
+      const response = await fetch(`${this.baseUrl}/session-storage/sessions`, {
+        headers: this.baseHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     } catch (e) {
       console.error(e);
       return null;

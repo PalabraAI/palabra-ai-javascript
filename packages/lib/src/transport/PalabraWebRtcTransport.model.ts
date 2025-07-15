@@ -1,5 +1,5 @@
 import { AllowedMessageTypes } from '~/config/PipelineConfig.model';
-import { ConnectionState, RemoteParticipant, TrackPublishOptions } from 'livekit-client';
+import { ConnectionState, RemoteAudioTrack, RemoteParticipant, TrackPublishOptions } from 'livekit-client';
 import { PipelineConfigManager } from '~/config/PipelineConfigManager';
 import { filterErrorData, filterPartialTranscriptionData, filterPartialTranslatedTranscriptionData, filterPipelineTimingsData, filterTranscriptionData, filterTranslationData } from '~/utils/data-filters';
 export interface PalabraWebRtcTransportConstructor {
@@ -8,8 +8,10 @@ export interface PalabraWebRtcTransportConstructor {
   inputStream: MediaStream;
   configManager: PipelineConfigManager;
   publishTrackSettings?: TrackPublishOptions;
+  audioContext?: AudioContext;
 }
 export interface RemoteTrackInfo {
+  remoteAudioTrack: RemoteAudioTrack;
   track: MediaStreamTrack;
   language: string;
   participant: string;

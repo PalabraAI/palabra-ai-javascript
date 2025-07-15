@@ -74,12 +74,17 @@ vi.mock('../api/api', () => ({
   })),
 }));
 
+const mockSwitchActiveDevice = vi.fn();
+
 vi.mock('../transport/PalabraWebRtcTransport', () => ({
   PalabraWebRtcTransport: vi.fn().mockImplementation(() => ({
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn().mockResolvedValue(undefined),
     setTask: vi.fn().mockResolvedValue(undefined),
     on: vi.fn().mockImplementation(() => { /* mock */ }),
+    getRoom: vi.fn().mockImplementation(() => ({
+      switchActiveDevice: mockSwitchActiveDevice,
+    })),
   })),
 }));
 
@@ -122,17 +127,13 @@ describe('PalabraClient', () => {
 
   it('should startPlayback and call playTracks', async () => {
     const playTracksSpy = vi.spyOn(client as unknown as { playTracks: () => void }, 'playTracks').mockImplementation(() => undefined);
-    const initAudioContextSpy = vi.spyOn(client as unknown as { initAudioContext: () => void }, 'initAudioContext').mockImplementation(() => undefined);
     await client.startPlayback();
     expect(playTracksSpy).toHaveBeenCalled();
-    expect(initAudioContextSpy).toHaveBeenCalled();
     expect((client as unknown as { shouldPlayTranslation: boolean }).shouldPlayTranslation).toBe(true);
   });
 
   it('should stopPlayback and reset context', async () => {
-    const resetSpy = vi.spyOn(client as unknown as { resetPlayTranslationContext: () => void }, 'resetPlayTranslationContext').mockImplementation(() => undefined);
     await client.stopPlayback();
-    expect(resetSpy).toHaveBeenCalled();
     expect((client as unknown as { shouldPlayTranslation: boolean }).shouldPlayTranslation).toBe(false);
   });
 
@@ -209,5 +210,69 @@ describe('PalabraClient', () => {
     expect(stopTranslationSpy).toHaveBeenCalled();
     expect(stopPlaybackSpy).toHaveBeenCalled();
     expect(initConfigSpy).toHaveBeenCalled();
+  });
+
+  it('should setVolume', async  () => {
+    const setVolumeSpy = vi.spyOn(client as unknown as { setVolume: (...args: unknown[]) => void }, 'setVolume').mockImplementation(() => undefined);
+    await client.startTranslation();
+    client.setVolume('es', 0.5);
+    expect(setVolumeSpy).toHaveBeenCalled();
+  });
+
+  it('should changeAudioOutputDevice', async () => {
+    await client.startTranslation();
+    await client.changeAudioOutputDevice('mock-device-id');
+    expect((client as unknown as { deviceId: string }).deviceId).toBe('mock-device-id');
+    expect(mockSwitchActiveDevice).toHaveBeenCalledWith('audiooutput', 'mock-device-id');
+  });
+
+  it('should call attach on remoteAudioTrack when playTracks is called', async () => {
+    const mockAttach = vi.fn();
+    const mockRemoteAudioTrack = { attach: mockAttach, attachedElements: [] };
+    (client as unknown as { translationTracks: Map<string, unknown> })
+      .translationTracks.set('test-sid', {
+        remoteAudioTrack: mockRemoteAudioTrack,
+        language: 'es',
+      });
+    await (client as unknown as { playTracks: () => void }).playTracks();
+    expect(mockAttach).toHaveBeenCalled();
+  });
+
+  it('should call detach on remoteAudioTrack when stopPlayback is called', async () => {
+    const mockDetach = vi.fn();
+    const mockRemoteAudioTrack = { detach: mockDetach, attachedElements: [] };
+    (client as unknown as { translationTracks: Map<string, unknown> })
+      .translationTracks.set('test-sid', {
+        remoteAudioTrack: mockRemoteAudioTrack,
+        language: 'es',
+      });
+    await client.stopPlayback();
+    expect(mockDetach).toHaveBeenCalled();
+  });
+
+  it('should not call attach on remoteAudioTrack when playTracks is called and remoteAudioTrack is already attached', async () => {
+    const mockAttach = vi.fn();
+    const mockRemoteAudioTrack = { attach: mockAttach, attachedElements: [1] };
+
+    (client as unknown as { translationTracks: Map<string, unknown> })
+      .translationTracks.set('test-sid', {
+        remoteAudioTrack: mockRemoteAudioTrack,
+        language: 'es',
+      });
+
+    await (client as unknown as { playTracks: () => void }).playTracks();
+    expect(mockAttach).not.toHaveBeenCalled();
+  });
+
+  it('should call detach on remoteAudioTrack when stopPlayback is called', async () => {
+    const mockDetach = vi.fn();
+    const mockRemoteAudioTrack = { detach: mockDetach, attachedElements: [] };
+    (client as unknown as { translationTracks: Map<string, unknown> })
+      .translationTracks.set('test-sid', {
+        remoteAudioTrack: mockRemoteAudioTrack,
+        language: 'es',
+      });
+    await client.stopPlayback();
+    expect(mockDetach).toHaveBeenCalled();
   });
 });

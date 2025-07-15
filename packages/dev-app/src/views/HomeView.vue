@@ -17,6 +17,7 @@ const route = useRoute();
       </div>
     </div>
     <nav class="flex items-center md:flex-row flex-col">
+      
       <router-link
         to="/"
         class="mx-4 px-4 py-2 rounded-md transition-colors"
@@ -37,6 +38,20 @@ const route = useRoute();
         :class="route.path === '/advanced' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'"
       >
         Advanced Example
+      </router-link>
+      <router-link
+        to="/from-audio-file"
+        class="mx-4 px-4 py-2 rounded-md transition-colors"
+        :class="route.path === '/from-audio-file' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'"
+      >
+        From Audio File Example
+      </router-link>
+      <router-link
+        to="/change-audio-output-device"
+        class="mx-4 px-4 py-2 rounded-md transition-colors"
+        :class="route.path === '/change-audio-output-device' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'"
+      >
+        Change Audio Output Device
       </router-link>
     </nav>
   </header>

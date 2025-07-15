@@ -18,11 +18,3 @@ export interface PalabraClientData {
   transportType?: 'webrtc'; // TODO: add websocket transport | 'websocket'
   apiBaseUrl?: string;
 }
-
-export interface PlayTranslationContext {
-  streamSource: MediaStreamAudioSourceNode | null;
-  gainNode: GainNode | null;
-  audioElement: InstanceType<typeof Audio> | null;
-  audioSources: MediaStreamAudioSourceNode[];
-  gainNodes: GainNode[];
-}

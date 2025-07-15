@@ -7,9 +7,9 @@ import {
   type PalabraClientData,
 } from '@palabra-ai/translator';
 import { onMounted, ref } from 'vue';
+import VolumeChanger from '@/components/VolumeChanger.vue';
 
 let palabraClient: PalabraClient | null = null;
-const currentMicTrack: MediaStreamTrack | null = null;
 
 const isTranslationStarted = ref(false);
 const isMicrophoneMuted = ref(false);
@@ -58,7 +58,6 @@ const stopTranslation = async () => {
 };
 
 const toggleMicrophone = () => {
-  if (!currentMicTrack) return;
   if (isMicrophoneMuted.value) {
     palabraClient?.unmuteOriginalTrack();
     isMicrophoneMuted.value = false;
@@ -110,6 +109,10 @@ const setTranslateTo = async (code: PalabraClientData['translateTo']) => {
 <template>
   <main class="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">
     <h2 class="text-2xl font-bold mb-6 text-center">Advanced Translator Example</h2>
+    <div v-if="isTranslationStarted && palabraClient">
+      <VolumeChanger :client="palabraClient" language="es" />
+      <VolumeChanger :client="palabraClient" language="fr" />
+    </div>
     <div>
       <h2>Transcription:</h2>
       <p>{{ transcriptionData }}</p>
