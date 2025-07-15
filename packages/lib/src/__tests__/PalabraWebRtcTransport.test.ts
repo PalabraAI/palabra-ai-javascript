@@ -176,6 +176,7 @@ describe('PalabraWebRtcTransport', () => {
           track: {},
           language: 'en',
           participant: 'user1',
+          remoteAudioTrack: mockTrack,
         },
       ],
     );

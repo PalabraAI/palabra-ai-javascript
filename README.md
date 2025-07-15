@@ -74,6 +74,24 @@ await client.stopPlayback();
 await client.stopTranslation();
 ```
 
+### 6. Output device changing
+
+> [!NOTE]
+> Audio output device switching is supported only in browsers that implement setSinkId(). In unsupported browsers like Safari, this method will have no effect.
+> 
+```ts
+await client.changeAudioOutputDevice('deviceId')
+```
+
+### 7. Volume changing for audio track by language
+
+> [!NOTE]
+> Volume should be a value between 0.0 and 1.0, where 0.0 is muted and 1.0 is maximum volume.
+> 
+```ts
+client.setVolume('es', .7)
+```
+
 > [!NOTE]
 > Browsers may restrict audio playback initiated without user interaction.
 > Each browser may also define user interaction differently.
@@ -144,6 +162,14 @@ new PalabraClient(options: PalabraClientData)
 
 - `unmuteOriginalTrack(): void`  
   Unmutes the original audio track (microphone).
+
+- `setVolume(language: string, volume: number): void`  
+Set volume for audio track by given language. Volume should be between 0.0 (muted) and 1.0 (maximum)
+
+- `changeAudioOutputDevice(deviceId: string): Promise<void>`
+  Change output device
+  > Note: Audio output device switching is supported only in browsers that implement setSinkId(). In unsupported browsers like Safari, this method will have no effect.
+  > 
 
 - `cleanup(): Promise<void>`  
   Stops translation and playback, releases resources, and resets the client to its initial state.

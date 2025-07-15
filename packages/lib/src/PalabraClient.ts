@@ -1,4 +1,4 @@
-import { PalabraClientData, PlayTranslationContext } from '~/PalabraClient.model';
+import { PalabraClientData } from '~/PalabraClient.model';
 import { PalabraApiClient } from '~/api/api';
 import { PalabraWebRtcTransport } from '~/transport/PalabraWebRtcTransport';
 import { PipelineConfigManager } from '~/config/PipelineConfigManager';
@@ -10,9 +10,11 @@ import {
   EVENT_STOP_TRANSLATION,
   PalabraEvents,
   PROXY_EVENTS,
+  RemoteTrackInfo,
 } from '~/transport/PalabraWebRtcTransport.model';
 import { PalabraBaseEventEmitter } from '~/PalabraBaseEventEmitter';
 import { SessionResponse } from '~/api/api.model';
+import { supportsAudioContextSetSinkId } from './utils';
 
 export class PalabraClient extends PalabraBaseEventEmitter {
   private translateFrom: string;
@@ -25,18 +27,14 @@ export class PalabraClient extends PalabraBaseEventEmitter {
   private transportType: PalabraClientData['transportType'];
   private configManager: PipelineConfigManager;
   private audioContext: AudioContext;
-  private playTranslationContext: PlayTranslationContext = {
-    streamSource: null,
-    gainNode: null,
-    audioElement: null,
-    audioSources: [],
-    gainNodes: [],
-  };
+
   private shouldPlayTranslation: boolean;
 
-  private translationTracks: MediaStreamTrack[];
+  private translationTracks = new Map<string, RemoteTrackInfo>();
 
   private sessionData: SessionResponse | null = null;
+
+  private deviceId = '';
 
   constructor(data: PalabraClientData) {
     super();
@@ -62,8 +60,8 @@ export class PalabraClient extends PalabraBaseEventEmitter {
       this.emit(EVENT_START_TRANSLATION);
       return true;
     } catch (error) {
-      console.error('Failed to start translation:', error);
-      return false;
+      await this.stopTranslation();
+      throw error;
     }
   }
 
@@ -71,25 +69,53 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     await this.transport?.disconnect();
     await this.deleteSession();
     this.transport = null;
+    this.stopPlayback();
+    this.closeAudioContext();
+    this.cleanUnusedTracks([]);
     this.emit(EVENT_STOP_TRANSLATION);
   }
 
   public async startPlayback() {
-    await this.initAudioContext();
     this.shouldPlayTranslation = true;
     this.playTracks();
   }
 
   public async stopPlayback() {
     this.shouldPlayTranslation = false;
-    this.resetPlayTranslationContext();
+    this.translationTracks.forEach(track => {
+      track.remoteAudioTrack.detach();
+    });
+  }
+
+  public setVolume(language: string, volume: number) {
+    this.translationTracks?.forEach(track => {
+      if (track.language === language) {
+        console.log('setting volume', volume, 'for', language);
+        track.remoteAudioTrack.setVolume(volume);
+      }
+    });
+  }
+
+  private cleanUnusedTracks(event: RemoteTrackInfo[]) {
+    const newTracks = new Set(event.map(track => track.remoteAudioTrack.sid));
+    this.translationTracks.forEach((track, sid) => {
+      if (!newTracks.has(sid)) {
+        track.remoteAudioTrack.detach();
+        this.translationTracks.delete(sid);
+      }
+    });
   }
 
   private initTransportHandlers() {
-
     this.transport.on(EVENT_REMOTE_TRACKS_UPDATE, (event) => {
 
-      this.translationTracks = event.map(track => track.track);
+      this.cleanUnusedTracks(event);
+
+      event.forEach(track => {
+        if (!this.translationTracks.has(track.remoteAudioTrack.sid)) {
+          this.translationTracks.set(track.remoteAudioTrack.sid, track);
+        }
+      });
 
       if (this.shouldPlayTranslation) {
         this.playTracks();
@@ -126,11 +152,14 @@ export class PalabraClient extends PalabraBaseEventEmitter {
 
     this.originalTrack = await this.handleOriginalTrack();
 
+    this.initAudioContext();
+
     this.transport = new PalabraWebRtcTransport({
       streamUrl: sessionResponse.data.webrtc_url,
       accessToken: sessionResponse.data.publisher,
       inputStream: new MediaStream([this.originalTrack]),
       configManager: this.configManager,
+      audioContext: supportsAudioContextSetSinkId() ? this.audioContext : undefined,
     });
 
     return this.transport;
@@ -190,63 +219,31 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     this.initConfig();
   }
 
-  private resetPlayTranslationContext() {
-    this.playTranslationContext.streamSource?.disconnect();
-    this.playTranslationContext.gainNode?.disconnect();
-    this.playTranslationContext.audioElement?.pause();
-    if (this.playTranslationContext.audioElement) {
-      this.playTranslationContext.audioElement.srcObject = null;
-    }
-    this.playTranslationContext.audioElement = null;
-    this.playTranslationContext.streamSource = null;
-    this.playTranslationContext.gainNode = null;
+  async changeAudioOutputDevice(deviceId: string) {
+    this.deviceId = deviceId;
+    this.transport.getRoom().switchActiveDevice('audiooutput', this.deviceId);
+  }
+
+  private isAttached(track: RemoteTrackInfo) {
+    return track.remoteAudioTrack.attachedElements.length > 0;
   }
 
   private async playTracks() {
-    if (!this.translationTracks || this.translationTracks.length === 0) return;
-
-    const mediaStream = new MediaStream(this.translationTracks);
-
-    const audioTracks = mediaStream.getAudioTracks();
-
-    if (audioTracks.length === 0) {
-      console.warn('No audio tracks found in MediaStream');
-      return;
-    }
-    this.playTranslationContext.audioSources?.forEach(source => source.disconnect());
-    this.playTranslationContext.gainNodes?.forEach(node => node.disconnect());
-
-    if (!this.playTranslationContext.audioElement) {
-      this.playTranslationContext.audioElement = new Audio();
-    }
-    this.playTranslationContext.audioElement.srcObject = mediaStream;
-    this.playTranslationContext.audioElement.volume = 0;
-
-    this.playTranslationContext.audioSources = [];
-    this.playTranslationContext.gainNodes = [];
-
-    const audioContext = new AudioContext();
-
-    for (const track of audioTracks) {
-      const singleTrackStream = new MediaStream([track]);
-      const streamSource = audioContext?.createMediaStreamSource(singleTrackStream);
-      const gainNode = audioContext?.createGain();
-
-      streamSource.connect(gainNode);
-      gainNode.connect(audioContext?.destination);
-
-      this.playTranslationContext.audioSources.push(streamSource);
-      this.playTranslationContext.gainNodes.push(gainNode);
-    }
-
-    if (audioContext?.state === 'suspended') {
-      await audioContext?.resume();
-    }
+    this.translationTracks?.forEach(track => {
+      if (!this.isAttached(track)) {
+        track.remoteAudioTrack.attach();
+      }
+    });
   }
 
   private async initAudioContext() {
     if (this.audioContext) return;
     this.audioContext = new AudioContext();
+  }
+
+  private closeAudioContext() {
+    this.audioContext?.close();
+    this.audioContext = null;
   }
 
   private initConfig() {
