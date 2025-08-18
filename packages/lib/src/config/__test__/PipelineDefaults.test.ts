@@ -98,9 +98,11 @@ describe('PipelineDefaults', () => {
   it('Translation queue configs default object should match the default config', () => {
     expect(configDefaults.translation_queue_configs).toEqual({
       global: {
-        desired_queue_level_ms: 8000,
+        desired_queue_level_ms: 10000,
         max_queue_level_ms: 24000,
-        auto_tempo: false,
+        auto_tempo: true,
+        min_tempo: 1.0,
+        max_tempo: 1.2,
       },
     });
   });

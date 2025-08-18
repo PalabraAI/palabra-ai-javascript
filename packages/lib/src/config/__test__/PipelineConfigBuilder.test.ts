@@ -92,6 +92,8 @@ describe('PipelineConfigBuilder WebRtc', () => {
         desired_queue_level_ms: 10000,
         max_queue_level_ms: 20000,
         auto_tempo: true,
+        min_tempo: 1.0,
+        max_tempo: 1.2,
       },
     });
     const config = builder.build();
@@ -101,6 +103,8 @@ describe('PipelineConfigBuilder WebRtc', () => {
         desired_queue_level_ms: 10000,
         max_queue_level_ms: 20000,
         auto_tempo: true,
+        min_tempo: 1.0,
+        max_tempo: 1.2,
       },
     });
   });
