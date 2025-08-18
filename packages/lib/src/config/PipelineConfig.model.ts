@@ -136,6 +136,8 @@ export interface TranslationQueueConfig {
     desired_queue_level_ms: number;
     max_queue_level_ms: number;
     auto_tempo: boolean;
+    min_tempo: number;
+    max_tempo: number;
   }
 }
 

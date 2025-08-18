@@ -32,9 +32,9 @@ const getAudioTrack = async (): Promise<MediaStreamTrack> => {
 
 onMounted(async () => {
   const apiClient = new PalabraApiClient({
-      clientId: import.meta.env.VITE_PALABRA_CLIENT_ID,
-      clientSecret: import.meta.env.VITE_PALABRA_CLIENT_SECRET,
-    }, import.meta.env.VITE_PALABRA_ENDPOINT)
+    clientId: import.meta.env.VITE_PALABRA_CLIENT_ID,
+    clientSecret: import.meta.env.VITE_PALABRA_CLIENT_SECRET,
+  }, import.meta.env.VITE_PALABRA_ENDPOINT)
 
   const sessionsData = await apiClient.fetchActiveSessions();
 
@@ -48,7 +48,7 @@ onMounted(async () => {
       clientId: import.meta.env.VITE_PALABRA_CLIENT_ID,
       clientSecret: import.meta.env.VITE_PALABRA_CLIENT_SECRET,
     },
-    translateFrom: 'ru',
+    translateFrom: 'en',
     translateTo: 'en-us',
     handleOriginalTrack: getAudioTrack,
     apiBaseUrl: import.meta.env.VITE_PALABRA_ENDPOINT,
