@@ -76,16 +76,15 @@ describe('PipelineConfigManager', () => {
 
   it('Delete translation should delete a translation', () => {
     manager.addTranslationTarget({
-      target_language: 'en',
+      target_language: 'en-us',
     });
     manager.addTranslationTarget({
       target_language: 'fr',
     });
-    const config = manager.getConfig();
-    expect(config.pipeline.translations).toHaveLength(2);
+    expect(manager.getConfig().pipeline.translations).toHaveLength(2);
 
     manager.deleteTranslationTarget('fr');
-    expect(config.pipeline.translations).toHaveLength(1);
+    expect(manager.getConfig().pipeline.translations).toHaveLength(1);
   });
 
   it('Set message types should update the config', () => {

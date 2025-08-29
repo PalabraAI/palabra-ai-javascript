@@ -5,3 +5,4 @@ export * from './source';
 export * from './target';
 export * from './track-from-file';
 export * from './utils';
+export * from './VolumeNode';

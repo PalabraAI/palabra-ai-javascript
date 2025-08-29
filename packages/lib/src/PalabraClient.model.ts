@@ -17,4 +17,9 @@ export interface PalabraClientData {
   handleOriginalTrack: () => Promise<MediaStreamTrack>;
   transportType?: 'webrtc'; // TODO: add websocket transport | 'websocket'
   apiBaseUrl?: string;
+  intent?:string;
+  audioContext?:AudioContext;
+  ignoreAudioContext?:boolean;
 }
+
+export type TrackSid = string;

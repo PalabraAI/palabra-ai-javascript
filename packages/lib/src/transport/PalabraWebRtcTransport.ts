@@ -127,6 +127,23 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
     await this.sendCommand('end_task', { 'force': false });
   }
 
+  async getTask(): Promise<void> {
+    console.log('getTask >>>>>>');
+    await this.sendCommand('get_task', {});
+  }
+
+  async pauseTask(): Promise<void> {
+    console.log('pauseTask >>>>>>');
+    await this.sendCommand('pause_task', {});
+    await this.getTask();
+  }
+
+  async resumeTask(): Promise<void> {
+    console.log('resumeTask >>>>>>');
+    await this.setTask(this.configManager.getConfig());
+    await this.getTask();
+  }
+
   private createHashForAllowedMessageTypes(allowedMessageTypes: AllowedMessageTypes[]): void {
     allowedMessageTypes.forEach(type => {
       this.allowedMessageTypesHash.set(type, 1);
@@ -207,10 +224,8 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
   }
 
   private handleTranslationData(messageData: DataReceivedEventPayload, participant: RemoteParticipant, topic): void {
-    if (this.allowedMessageTypesHash.get(messageData.message_type) || messageData.message_type === 'error') {
-      handleReceivedData(this, messageData);
-      this.emit(EVENT_DATA_RECEIVED, { payload: messageData, participant, topic });
-    }
+    handleReceivedData(this, messageData);
+    this.emit(EVENT_DATA_RECEIVED, { payload: messageData, participant, topic });
   }
 
   private removeRemoteAudioSourceBySid(sid: string): void {

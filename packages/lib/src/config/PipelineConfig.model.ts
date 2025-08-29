@@ -1,4 +1,5 @@
 import { SourceLangCode } from '~/utils/source';
+import { TargetLangCode } from '~/utils/target';
 
 export interface StreamConfigBase {
   content_type: 'audio';
@@ -121,8 +122,8 @@ export interface SpeechGenerationConfig {
 }
 
 export interface TranslationConfig {
-  target_language: string;
-  allowed_source_languages: string[];
+  target_language: TargetLangCode;
+  allowed_source_languages: SourceLangCode[];
   translation_model: 'auto' | 'alpha' | string;
   allow_translation_glossaries: boolean;
   style: string | null;
@@ -159,3 +160,34 @@ export interface PipelineConfig {
     allowed_message_types: AllowedMessageTypes[];
   };
 }
+
+export type TypeOfPropertyByPath<SourceObject, SourcePath extends string> =
+SourceObject extends object
+? (SourcePath extends `${infer FirstPart}.${infer Rest}` ? TypeOfPropertyByPath<PropertyType<SourceObject, FirstPart>, Rest> : PropertyType<SourceObject, SourcePath>)
+: never;
+
+export type PropertyType<SourceObject, Key extends string> =
+  Key extends keyof SourceObject
+    ? SourceObject[Key]
+    : (
+        Key extends `${number}`
+          ? (
+              number extends keyof SourceObject
+                ? SourceObject[number]
+                : never
+            )
+          : never
+      );
+
+export type AvailablePaths<SourceObject> = SourceObject extends object
+      ? SourceObject extends (infer V)[]
+        ? number extends keyof SourceObject
+          ? `${number}` | `${number}.${AvailablePaths<V>}`
+          : never
+        : {
+            [Key in keyof SourceObject & string]:
+            SourceObject[Key] extends object
+                ? Key | `${Key}.${AvailablePaths<SourceObject[Key]>}`
+                : Key
+          }[keyof SourceObject & string]
+      : never;

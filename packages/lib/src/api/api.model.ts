@@ -25,6 +25,7 @@ export interface CreateSessionPayload {
     publisher_count: number,
     subscriber_count: number,
     publisher_can_subscribe: boolean,
+    intent?:string
   }
 }
 

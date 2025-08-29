@@ -1,7 +1,7 @@
 import { allowed_message_types, preprocessing, transcription, translation, translation_queue_configs } from '~/config/PipelineDefaults';
 import { describe, expect, it } from 'vitest';
 import { PipelineConfigBuilder } from '~/config/PipelineConfigBuilder';
-import { PipelineConfig } from '../PipelineConfig.model';
+import { PipelineConfig } from '~/config/PipelineConfig.model';
 
 describe('PipelineConfigBuilder WebRtc', () => {
   it('Default WebRTC config should match the default config', () => {
@@ -76,13 +76,12 @@ describe('PipelineConfigBuilder WebRtc', () => {
       target_language: 'es',
     });
     builder.addTranslation({
-      target_language: 'en',
+      target_language: 'en-us',
     });
-    const config = builder.build();
-    expect(config.pipeline.translations).toHaveLength(2);
-    builder.deleteTranslation('en');
-    expect(config.pipeline.translations).toHaveLength(1);
-    expect(config.pipeline.translations[0].target_language).toEqual('es');
+    expect(builder.getValue('translations')).toHaveLength(2);
+    builder.deleteTranslation('en-us');
+    expect(builder.getValue('translations')).toHaveLength(1);
+    expect(builder.getValue('translations')[0].target_language).toEqual('es');
   });
 
   it('Set translation queue config should update the config', () => {
@@ -190,5 +189,32 @@ describe('PipelineConfigBuilder WebSocket', () => {
         allowed_message_types,
       },
     });
+  });
+});
+
+describe('PipelineConfigBuilder set and get', () => {
+  it('setValue should work', () => {
+    const builder = new PipelineConfigBuilder();
+    builder.setValue('allowed_message_types', ['some_message_type']);
+    const config = builder.build();
+    expect(config.pipeline.allowed_message_types).toEqual(['some_message_type']);
+  });
+
+  it('getValue should work', () => {
+    const builder = new PipelineConfigBuilder();
+    builder.setValue('allowed_message_types', ['some_message_type']);
+    expect(builder.getValue('allowed_message_types')).toEqual(['some_message_type']);
+  });
+
+  it('getValue undefined should return undefined', () => {
+    const builder = new PipelineConfigBuilder();
+    // @ts-expect-error - This is a test
+    expect(builder.getValue('undefined_property')).toBeUndefined();
+  });
+
+  it('setValue & getValue should work with nested paths', () => {
+    const builder = new PipelineConfigBuilder();
+    builder.setValue('preprocessing.enable_vad', false);
+    expect(builder.getValue('preprocessing.enable_vad')).toEqual(false);
   });
 });

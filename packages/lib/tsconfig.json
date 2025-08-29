@@ -15,6 +15,5 @@
         "vite.config.d.ts",
         "node_modules",
         "dist",
-        "**/*.test.ts"
     ]
 }

@@ -3,20 +3,37 @@ import { ApiResponse, SessionResponse, CreateSessionPayload, SessionListResponse
 
 export class PalabraApiClient {
   private baseUrl: string;
-  private readonly clientId: string;
-  private readonly clientSecret: string;
+  private clientId: string;
+  private clientSecret: string;
+  private readonly intent?: string;
+  private authToken?: string;
 
-  constructor(auth: ClientCredentialsAuth | UserTokenAuth, baseUrl = 'https://api.palabra.ai') {
+  constructor(auth: ClientCredentialsAuth | UserTokenAuth, baseUrl = 'https://api.palabra.ai', intent?:string) {
     this.baseUrl = baseUrl;
-    this.clientId = 'clientId' in auth ? auth.clientId : '';
-    this.clientSecret = 'clientSecret' in auth ? auth.clientSecret : '';
+    this.initAuth(auth);
+    this.intent = intent;
 
-    if (!this.clientId || !this.clientSecret) {
+    if (!this.authToken && (!this.clientId || !this.clientSecret)) {
       throw new Error('ClientId and ClientSecret are required for API call! Pass them into constructor');
     }
   }
 
+  private initAuth(auth: ClientCredentialsAuth | UserTokenAuth) {
+    if ('userToken' in auth) {
+      this.authToken = auth.userToken;
+    } else {
+      this.clientId = 'clientId' in auth ? auth.clientId : '';
+      this.clientSecret = 'clientSecret' in auth ? auth.clientSecret : '';
+    }
+  }
+
   private baseHeaders(): HeadersInit {
+    if (this.authToken) {
+      return {
+        'Authorization': `Bearer ${this.authToken}`,
+        'Content-Type': 'application/json',
+      };
+    }
     return {
       'ClientId': this.clientId,
       'ClientSecret': this.clientSecret,
@@ -34,6 +51,7 @@ export class PalabraApiClient {
         publisher_count: 1,
         subscriber_count: 0,
         publisher_can_subscribe: true,
+        intent: this.intent,
       },
     };
 
@@ -51,20 +69,15 @@ export class PalabraApiClient {
     return data;
   };
 
-  deleteStreamingSession = async (sessionId: string): Promise<ApiResponse<void> | null> => {
+  deleteStreamingSession = async (sessionId: string): Promise<void> => {
     if (!sessionId) {
       throw new Error('SessionId is required for API call! Pass it into constructor');
     }
 
-    try {
-      await fetch(`${this.baseUrl}/session-storage/sessions/${sessionId}`, {
-        method: 'DELETE',
-        headers: this.baseHeaders(),
-      });
-    } catch (e) {
-      console.error(e);
-      return null;
-    }
+    await fetch(`${this.baseUrl}/session-storage/sessions/${sessionId}`, {
+      method: 'DELETE',
+      headers: this.baseHeaders(),
+    });
   };
 
   fetchActiveSessions = async (): Promise<ApiResponse<SessionListResponse> | null> => {
