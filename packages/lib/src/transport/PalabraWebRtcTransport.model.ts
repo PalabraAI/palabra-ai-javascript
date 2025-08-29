@@ -43,6 +43,7 @@ export const EVENT_PARTIAL_TRANSLATED_TRANSCRIPTION_RECEIVED = 'partialTranslate
 export const EVENT_PARTIAL_TRANSCRIPTION_RECEIVED = 'partialTranscriptionReceived';
 export const EVENT_PIPELINE_TIMINGS_RECEIVED = 'pipelineTimingsReceived';
 export const EVENT_ERROR_RECEIVED = 'errorReceived';
+export const EVENT_ORIGINAL_TRACK_VOLUME_CHANGED = 'originalTrackVolumeChanged';
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type PalabraEvents = {
@@ -59,6 +60,7 @@ export type PalabraEvents = {
   [EVENT_PARTIAL_TRANSCRIPTION_RECEIVED]: (data: ReturnType<typeof filterPartialTranscriptionData>) => void;
   [EVENT_PIPELINE_TIMINGS_RECEIVED]: (data: ReturnType<typeof filterPipelineTimingsData>) => void;
   [EVENT_ERROR_RECEIVED]: (data: ReturnType<typeof filterErrorData>) => void;
+  [EVENT_ORIGINAL_TRACK_VOLUME_CHANGED]: (data: number) => void;
 }
 
 export const PROXY_EVENTS: (keyof PalabraEvents)[] = [

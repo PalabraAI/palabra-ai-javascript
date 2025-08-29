@@ -18,6 +18,7 @@ import {
   EVENT_TRANSCRIPTION_RECEIVED,
   EVENT_TRANSLATION_RECEIVED,
 } from '../transport/PalabraWebRtcTransport.model';
+import { AllowedMessageTypes } from '~/config';
 
 describe('Data Filters', () => {
   const mockTranscriptionData = { text: 'Hello world' };
@@ -191,7 +192,7 @@ describe('Data Filters', () => {
     });
 
     it('should not emit any event for an unknown message_type', () => {
-      const payload: DataReceivedEventPayload = { message_type: 'unknown' as unknown, data: {} };
+      const payload: DataReceivedEventPayload = { message_type: 'unknown' as unknown as AllowedMessageTypes, data: {} };
       handleReceivedData(palabraEventEmitter, payload);
       expect(palabraEventEmitter.emit).not.toHaveBeenCalled();
     });

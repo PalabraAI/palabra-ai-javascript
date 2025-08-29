@@ -1,7 +1,7 @@
 import { PipelineConfigBuilder } from '~/config/PipelineConfigBuilder';
 import { SourceLangCode } from '~/utils/source';
 import { translation as defaultTranslation } from './PipelineDefaults';
-import { AddTranslationArgs, AllowedMessageTypes, PipelineConfig } from './PipelineConfig.model';
+import { AddTranslationArgs, AllowedMessageTypes, AvailablePaths, PipelineConfig, TypeOfPropertyByPath } from './PipelineConfig.model';
 
 export class PipelineConfigManager {
   private builder: PipelineConfigBuilder;
@@ -46,5 +46,26 @@ export class PipelineConfigManager {
 
   public getConfig(): PipelineConfig {
     return this.builder.build();
+  }
+
+  public getJSON(): PipelineConfig['pipeline'] {
+    return structuredClone(this.getConfig().pipeline);
+  }
+
+  public setJSON(newPipeline: PipelineConfig['pipeline']): PipelineConfig['pipeline'] {
+    return this.builder.setPipeline(newPipeline);
+  }
+
+  public restoreDefaults(): PipelineConfig['pipeline'] {
+    this.builder.restoreDefaults();
+    return structuredClone(this.getConfig().pipeline);
+  }
+
+  public setValue<P extends AvailablePaths<PipelineConfig['pipeline']>>(path: P, value: TypeOfPropertyByPath<PipelineConfig['pipeline'], P>) {
+    return this.builder.setValue(path, value);
+  }
+
+  public getValue<P extends AvailablePaths<PipelineConfig['pipeline']>>(path: P): TypeOfPropertyByPath<PipelineConfig['pipeline'], P> {
+    return this.builder.getValue(path);
   }
 }

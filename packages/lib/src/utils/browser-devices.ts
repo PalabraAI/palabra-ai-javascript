@@ -15,7 +15,7 @@ export async function getLocalAudioTrack(deviceId?: string): Promise<MediaStream
   return track;
 }
 
-export async function getAudioOutputDevices(): Promise<MediaDeviceInfo[]> {
+export async function getAudioOutputDevices(deviceId?: string): Promise<MediaDeviceInfo[]> {
   let stream: MediaStream | null = null;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -32,5 +32,5 @@ export async function getAudioOutputDevices(): Promise<MediaDeviceInfo[]> {
     }
   }
   const devices = await navigator.mediaDevices.enumerateDevices();
-  return devices.filter((d) => d.kind === 'audiooutput');
+  return devices.filter((d) => d.kind === 'audiooutput' && (deviceId ? d.deviceId === deviceId : true));
 }

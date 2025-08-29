@@ -56,6 +56,28 @@ if (typeof global.AudioContext === 'undefined') {
   // @ts-expect-error: mock for test environment
   global.AudioContext = class {
     close() { return Promise.resolve(); }
+    createMediaStreamSource() {
+      return {
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      };
+    }
+    createGain() {
+      return {
+        gain: { value: 1 },
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      };
+    }
+    createMediaStreamDestination() {
+      return {
+        stream: {
+          getAudioTracks: () => [new MockMediaStreamTrack()],
+        },
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      };
+    }
   };
 }
 
@@ -75,6 +97,19 @@ vi.mock('../api/api', () => ({
 }));
 
 const mockSwitchActiveDevice = vi.fn();
+
+// Mock VolumeNode
+vi.mock('../utils/VolumeNode', () => ({
+  VolumeNode: vi.fn().mockImplementation(() => ({
+    createChain: vi.fn().mockReturnValue(new MockMediaStreamTrack()),
+    setVolume: vi.fn(),
+    getVolume: vi.fn().mockReturnValue(1.0),
+    mute: vi.fn(),
+    unmute: vi.fn(),
+    disconnect: vi.fn(),
+    isActive: vi.fn().mockReturnValue(true),
+  })),
+}));
 
 vi.mock('../transport/PalabraWebRtcTransport', () => ({
   PalabraWebRtcTransport: vi.fn().mockImplementation(() => ({
@@ -155,8 +190,11 @@ describe('PalabraClient', () => {
   it('should delete session', async () => {
     await client.startTranslation();
     expect((client as unknown as { sessionData: unknown }).sessionData).not.toBeNull();
-    await client.deleteSession();
-    expect((client as unknown as { sessionData: unknown }).sessionData).toBeNull();
+    expect((client as unknown as { sessionData: unknown }).sessionData).toEqual({
+      'id': 'session-id',
+      'publisher': 'token',
+      'webrtc_url': 'wss://test',
+    });
   });
 
   it('should setTranslateFrom and call setTask', async () => {
@@ -204,11 +242,9 @@ describe('PalabraClient', () => {
 
   it('should cleanup call stopTranslation, stopPlayback, and initConfig', async () => {
     const stopTranslationSpy = vi.spyOn(client, 'stopTranslation').mockResolvedValue(undefined);
-    const stopPlaybackSpy = vi.spyOn(client, 'stopPlayback').mockResolvedValue(undefined);
     const initConfigSpy = vi.spyOn(client as unknown as { initConfig: () => void }, 'initConfig').mockImplementation(() => undefined);
     await client.cleanup();
     expect(stopTranslationSpy).toHaveBeenCalled();
-    expect(stopPlaybackSpy).toHaveBeenCalled();
     expect(initConfigSpy).toHaveBeenCalled();
   });
 

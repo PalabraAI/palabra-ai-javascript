@@ -1,12 +1,20 @@
 import {
   AddTranslationArgs,
   AllowedMessageTypes,
+  AvailablePaths,
   PipelineConfig,
   PreprocessingConfig,
   TranscriptionConfig,
   TranslationQueueConfig,
+  TypeOfPropertyByPath,
 } from '~/config/PipelineConfig.model';
-import { preprocessing, transcription, translation_queue_configs, allowed_message_types, translation } from '~/config/PipelineDefaults';
+import {
+  preprocessing,
+  transcription,
+  translation_queue_configs,
+  allowed_message_types,
+  translation,
+} from '~/config/PipelineDefaults';
 import { SourceLangCode } from '~/utils/source';
 
 export class PipelineConfigBuilder {
@@ -70,6 +78,11 @@ export class PipelineConfigBuilder {
     };
   }
 
+  public restoreDefaults() {
+    this.config = this.getDefaultWebRtcConfig();
+    return this;
+  }
+
   public useWebSocket(): this {
     this.config = this.getDefaultWebSocketConfig();
     return this;
@@ -112,7 +125,7 @@ export class PipelineConfigBuilder {
   public setPreprocessing(config: Partial<PreprocessingConfig>): this {
     this.config.pipeline.preprocessing = {
       ...this.config.pipeline.preprocessing,
-      ...config,
+      ...structuredClone(config),
     };
     return this;
   }
@@ -126,7 +139,7 @@ export class PipelineConfigBuilder {
   public setTranscription(config: Partial<TranscriptionConfig>): this {
     this.config.pipeline.transcription = {
       ...this.config.pipeline.transcription,
-      ...config,
+      ...structuredClone(config),
     };
     return this;
   }
@@ -140,7 +153,7 @@ export class PipelineConfigBuilder {
   public addTranslation(config: AddTranslationArgs): this {
     this.config.pipeline.translations.push({
       ...translation,
-      ...config,
+      ...structuredClone(config),
     });
     return this;
   }
@@ -159,7 +172,7 @@ export class PipelineConfigBuilder {
   public setTranslationQueue(config: Partial<TranslationQueueConfig>): this {
     this.config.pipeline.translation_queue_configs = {
       ...this.config.pipeline.translation_queue_configs,
-      ...config,
+      ...structuredClone(config),
     };
     return this;
   }
@@ -197,12 +210,17 @@ export class PipelineConfigBuilder {
     return this;
   }
 
+  public setPipeline(newPipeline: PipelineConfig['pipeline']): PipelineConfig['pipeline'] {
+    this.config.pipeline = structuredClone(newPipeline);
+    return structuredClone(this.config.pipeline);
+  }
+
   /**
    * Build pipeline config
    * @returns PipelineConfig
    */
   public build(): PipelineConfig {
-    return { ...this.config };
+    return structuredClone(this.config);
   }
 
   /**
@@ -212,7 +230,20 @@ export class PipelineConfigBuilder {
    */
   public static fromConfig(config: PipelineConfig): PipelineConfigBuilder {
     const builder = new PipelineConfigBuilder();
-    builder.config = { ...config };
+    builder.config = structuredClone(config);
     return builder;
+  }
+
+  public setValue<P extends AvailablePaths<PipelineConfig['pipeline']>>(path: P, value: TypeOfPropertyByPath<PipelineConfig['pipeline'], P>) {
+    const keys = path.split('.');
+    const lastKey = keys.pop();
+    let parentProp: PipelineConfig['pipeline'] = this.config.pipeline;
+    keys.forEach(k => parentProp = parentProp[k]);
+    parentProp[lastKey] = value;
+    return this.config.pipeline;
+  }
+
+  public getValue<P extends AvailablePaths<PipelineConfig['pipeline']>>(path: P): TypeOfPropertyByPath<PipelineConfig['pipeline'], P> {
+    return path.split('.').reduce((acc, key) => acc[key], this.config.pipeline);
   }
 }

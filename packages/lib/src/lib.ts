@@ -5,3 +5,4 @@ export * from './transport/PalabraWebRtcTransport.model';
 export * from './api/api';
 export * from './utils';
 export * from './api/api.model';
+export * from './config';

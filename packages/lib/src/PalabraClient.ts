@@ -1,10 +1,12 @@
-import { PalabraClientData } from '~/PalabraClient.model';
+import { PalabraClientData, TrackSid } from '~/PalabraClient.model';
 import { PalabraApiClient } from '~/api/api';
 import { PalabraWebRtcTransport } from '~/transport/PalabraWebRtcTransport';
 import { PipelineConfigManager } from '~/config/PipelineConfigManager';
 import { TargetLangCode } from '~/utils/target';
 import { SourceLangCode } from '~/utils/source';
 import {
+  EVENT_CONNECTION_STATE_CHANGED,
+  EVENT_ORIGINAL_TRACK_VOLUME_CHANGED,
   EVENT_REMOTE_TRACKS_UPDATE,
   EVENT_START_TRANSLATION,
   EVENT_STOP_TRANSLATION,
@@ -14,27 +16,39 @@ import {
 } from '~/transport/PalabraWebRtcTransport.model';
 import { PalabraBaseEventEmitter } from '~/PalabraBaseEventEmitter';
 import { SessionResponse } from '~/api/api.model';
-import { supportsAudioContextSetSinkId } from './utils';
+import { supportsAudioContextSetSinkId, VolumeNode } from './utils';
+import { ConnectionState } from 'livekit-client';
+import { PipelineConfig } from './config';
 
 export class PalabraClient extends PalabraBaseEventEmitter {
-  private translateFrom: string;
-  private translateTo: string;
+  private translateFrom: SourceLangCode;
+  private translateTo: TargetLangCode;
   private auth: PalabraClientData['auth'];
   private apiClient: PalabraApiClient;
   private handleOriginalTrack: PalabraClientData['handleOriginalTrack'];
-  private originalTrack: MediaStreamTrack;
-  public transport: PalabraWebRtcTransport;
+  private originalTrack: MediaStreamTrack | null = null;
+  private originalTrackVolumeNode: VolumeNode | null = null;
+  public transport: PalabraWebRtcTransport | null = null;
   private transportType: PalabraClientData['transportType'];
   private configManager: PipelineConfigManager;
   private audioContext: AudioContext;
 
+
+  private initialOriginalTrack: MediaStreamTrack | null = null;
+
   private shouldPlayTranslation: boolean;
 
-  private translationTracks = new Map<string, RemoteTrackInfo>();
+  private translationTracks = new Map<TrackSid, RemoteTrackInfo>();
 
   private sessionData: SessionResponse | null = null;
 
   private deviceId = '';
+
+  private translationStatus: 'init' | 'ongoing' | 'paused' | 'stopped' = 'init';
+
+  private connectionStatus: ConnectionState | 'init' = 'init';
+
+  private ignoreAudioContext: PalabraClientData['ignoreAudioContext'];
 
   constructor(data: PalabraClientData) {
     super();
@@ -43,20 +57,29 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     this.translateFrom = data.translateFrom;
     this.translateTo = data.translateTo;
     this.handleOriginalTrack = data.handleOriginalTrack;
-    this.apiClient = new PalabraApiClient(this.auth, data.apiBaseUrl ?? 'https://api.palabra.ai');
+    this.apiClient = new PalabraApiClient(this.auth, data.apiBaseUrl ?? 'https://api.palabra.ai', data.intent);
 
     this.transportType = data.transportType ?? 'webrtc';
 
     this.initConfig();
 
     this.shouldPlayTranslation = false;
+
+    this.ignoreAudioContext = data.ignoreAudioContext ?? false;
+
+    if (data.audioContext) {
+      this.audioContext = data.audioContext;
+    }
   }
 
   public async startTranslation(): Promise<boolean> {
     try {
+      this.initAudioContext();
+      await this.wrapOriginalTrack();
       const transport = await this.createSession();
       this.initTransportHandlers();
       await transport.connect();
+      this.translationStatus = 'ongoing';
       this.emit(EVENT_START_TRANSLATION);
       return true;
     } catch (error) {
@@ -72,6 +95,8 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     this.stopPlayback();
     this.closeAudioContext();
     this.cleanUnusedTracks([]);
+    this.translationStatus = 'stopped';
+    this.cleanupOriginalTrack();
     this.emit(EVENT_STOP_TRANSLATION);
   }
 
@@ -87,10 +112,33 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     });
   }
 
+  public async pauseTranslation() {
+    await this.transport?.pauseTask();
+    this.translationStatus = 'paused';
+  }
+
+  public async resumeTranslation() {
+    await this.transport?.resumeTask();
+    this.translationStatus = 'ongoing';
+  }
+
+  public getTranslationStatus() {
+    return this.translationStatus;
+  }
+
+  public getConnectionStatus() {
+    return this.connectionStatus;
+  }
+
+  public getVolume(language: string) {
+    const [sid, remoteTrackInfo] = Array.from(this.translationTracks.entries()).find(entry => entry[1].language === language);
+    if (!sid) return null;
+    return remoteTrackInfo.remoteAudioTrack.getVolume();
+  }
+
   public setVolume(language: string, volume: number) {
     this.translationTracks?.forEach(track => {
       if (track.language === language) {
-        console.log('setting volume', volume, 'for', language);
         track.remoteAudioTrack.setVolume(volume);
       }
     });
@@ -107,6 +155,7 @@ export class PalabraClient extends PalabraBaseEventEmitter {
   }
 
   private initTransportHandlers() {
+    if (!this.transport) return;
     this.transport.on(EVENT_REMOTE_TRACKS_UPDATE, (event) => {
 
       this.cleanUnusedTracks(event);
@@ -127,6 +176,11 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     PROXY_EVENTS.forEach(event => {
       this.transport.on(event, (...args) => this.emit(event, ...args as Parameters<PalabraEvents[typeof event]>));
     });
+
+    this.transport.on(EVENT_CONNECTION_STATE_CHANGED, (state) => {
+      this.connectionStatus = state;
+      this.emit(EVENT_CONNECTION_STATE_CHANGED, state);
+    });
   }
 
   public muteOriginalTrack() {
@@ -137,7 +191,39 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     this.originalTrack.enabled = true;
   }
 
-  public async createSession() {
+  public setOriginalVolume(volume: number) {
+    if (!this.originalTrackVolumeNode) return;
+    this.originalTrackVolumeNode.setVolume(volume);
+    this.emit(EVENT_ORIGINAL_TRACK_VOLUME_CHANGED, volume);
+  }
+
+  public getOriginalVolume() {
+    return this.originalTrackVolumeNode?.getVolume() ?? 1.0;
+  }
+
+  private async wrapOriginalTrack() {
+    this.initialOriginalTrack = await this.handleOriginalTrack();
+
+    if (this.ignoreAudioContext) {
+      this.originalTrack = this.initialOriginalTrack;
+      return;
+    }
+
+    this.originalTrackVolumeNode = new VolumeNode(this.audioContext);
+    this.originalTrack = this.originalTrackVolumeNode.createChain(this.initialOriginalTrack);
+  }
+
+  public cleanupOriginalTrack() {
+    this.originalTrackVolumeNode?.disconnect();
+
+    this.originalTrack?.stop();
+    this.originalTrack = null;
+
+    this.initialOriginalTrack?.stop();
+    this.initialOriginalTrack = null;
+  }
+
+  protected async createSession() {
     const sessionResponse = await this.apiClient.createStreamingSession();
 
     if (!sessionResponse || !sessionResponse.ok) {
@@ -150,10 +236,6 @@ export class PalabraClient extends PalabraBaseEventEmitter {
 
     this.sessionData = sessionResponse.data;
 
-    this.originalTrack = await this.handleOriginalTrack();
-
-    this.initAudioContext();
-
     this.transport = new PalabraWebRtcTransport({
       streamUrl: sessionResponse.data.webrtc_url,
       accessToken: sessionResponse.data.publisher,
@@ -165,42 +247,62 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     return this.transport;
   }
 
+  public getConfigManager() {
+    return this.configManager;
+  }
+
   public getConfig() {
     return this.configManager.getConfig();
   }
 
-  public async deleteSession() {
+  protected async deleteSession() {
     if (!this.sessionData) {
       console.error('No session data found');
       return;
     }
-    await this.apiClient.deleteStreamingSession(this.sessionData.id);
-    this.sessionData = null;
+    try {
+      await this.apiClient.deleteStreamingSession(this.sessionData.id);
+    } catch (error) {
+      throw error;
+    } finally {
+      this.sessionData = null;
+    }
   }
 
   public async setTranslateFrom(code: PalabraClientData['translateFrom']) {
     this.translateFrom = code;
     this.configManager.setSourceLanguage(code as SourceLangCode);
-    await this.transport.setTask(this.configManager.getConfig());
+    await this.transport?.setTask(this.configManager.getConfig());
   }
 
-  public async setTranslateTo(code: PalabraClientData['translateTo']) {
+  public async setTranslateTo(code: PalabraClientData['translateTo'], previousCode?: PalabraClientData['translateTo']) {
     this.translateTo = code;
 
-    this.configManager.getConfig().pipeline.translations
-      .map((translation) => translation.target_language)
-      .forEach((target) => {
-        this.configManager.deleteTranslationTarget(target);
-      });
+    const translations = this.configManager.getValue('translations');
 
-    this.configManager.addTranslationTarget({ target_language: code as TargetLangCode });
+    if (translations.length === 0) {
+      this.configManager.addTranslationTarget({ target_language: code as TargetLangCode });
+      await this.transport?.setTask(this.configManager.getConfig());
+      return;
+    }
 
-    await this.transport.setTask(this.configManager.getConfig());
+    if (!previousCode) {
+      translations[0].target_language = code;
+      await this.transport?.setTask(this.configManager.getConfig());
+      return;
+    }
+
+    const translation = translations.find((t) => t.target_language === previousCode);
+
+    if (translation) {
+      translation.target_language = code;
+      await this.transport?.setTask(this.configManager.getConfig());
+    }
   }
 
   async addTranslationTarget(target: TargetLangCode) {
     this.configManager.addTranslationTarget({ target_language: target });
-    await this.transport.setTask(this.configManager.getConfig());
+    await this.transport?.setTask(this.configManager.getConfig());
   }
 
   async removeTranslationTarget(target: TargetLangCode | TargetLangCode[]) {
@@ -210,18 +312,17 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     } else {
       this.configManager.deleteTranslationTarget(target);
     }
-    await this.transport.setTask(this.configManager.getConfig());
+    await this.transport?.setTask(this.configManager.getConfig());
   }
 
   public async cleanup() {
     await this.stopTranslation();
-    await this.stopPlayback();
     this.initConfig();
   }
 
   async changeAudioOutputDevice(deviceId: string) {
     this.deviceId = deviceId;
-    this.transport.getRoom().switchActiveDevice('audiooutput', this.deviceId);
+    this.transport?.getRoom().switchActiveDevice('audiooutput', this.deviceId);
   }
 
   private isAttached(track: RemoteTrackInfo) {
@@ -237,7 +338,7 @@ export class PalabraClient extends PalabraBaseEventEmitter {
   }
 
   private async initAudioContext() {
-    if (this.audioContext) return;
+    if (this.audioContext || this.ignoreAudioContext) return;
     this.audioContext = new AudioContext();
   }
 
@@ -251,6 +352,15 @@ export class PalabraClient extends PalabraBaseEventEmitter {
 
     this.configManager.setSourceLanguage(this.translateFrom as SourceLangCode);
     this.configManager.addTranslationTarget({ target_language: this.translateTo as TargetLangCode });
+  }
+
+  public getApiClient() {
+    return this.apiClient;
+  }
+
+  public async setTask(task: PipelineConfig) {
+    this.configManager.setJSON(task.pipeline);
+    await this.transport?.setTask(task);
   }
 }
 
