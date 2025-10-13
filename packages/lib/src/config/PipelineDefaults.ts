@@ -55,8 +55,8 @@ export const transcription: TranscriptionConfig = {
  */
 export const translation_queue_configs: TranslationQueueConfig = {
   global: {
-    desired_queue_level_ms: 10000,
-    max_queue_level_ms: 24000,
+    desired_queue_level_ms: 5000,
+    max_queue_level_ms: 20000,
     auto_tempo: true,
     min_tempo: 1.15,
     max_tempo: 1.45,
