@@ -6,6 +6,7 @@ export interface StreamConfigBase {
 }
 
 export interface StreamConfigWebRtc extends StreamConfigBase {
+  content_type: 'audio';
   source?: {
     type: 'webrtc';
   };
@@ -43,55 +44,18 @@ export interface PreprocessingConfig {
 
 export interface SentenceSplitterConfig {
   enabled: boolean;
-  splitter_model: 'auto' | string;
-  advanced: {
-    min_sentence_characters: number;
-    min_sentence_seconds: number;
-    min_split_interval: number;
-    context_size: number;
-    segments_after_restart: number;
-    step_size: number;
-    max_steps_without_eos: number;
-    force_end_of_segment: number;
-  };
 }
 
 export interface VerificationConfig {
-  verification_model: 'auto' | string;
-  allow_verification_glossaries: boolean;
   auto_transcription_correction: boolean;
   transcription_correction_style: string | null;
 }
-
-export interface TranscriptionAdvancedConfig {
-  filler_phrases: {
-    enabled: boolean;
-    min_transcription_len: number;
-    min_transcription_time: number;
-    phrase_chance: number;
-  };
-  ignore_languages: SourceLangCode[];
-}
-
 export interface TranscriptionConfig {
   source_language: SourceLangCode;
   detectable_languages: SourceLangCode[];
-  asr_model: 'auto' | string;
-  denoise: 'none' | string;
-  allow_hotwords_glossaries: boolean;
-  supress_numeral_tokens: boolean;
-  diarize_speakers: boolean;
-  priority: 'normal' | string;
-  min_alignment_score: number;
-  max_alignment_cer: number;
   segment_confirmation_silence_threshold: number;
-  only_confirm_by_silence: boolean;
-  batched_inference: boolean;
-  force_detect_language: boolean;
-  calculate_voice_loudness: boolean;
   sentence_splitter: SentenceSplitterConfig;
   verification: VerificationConfig;
-  advanced: TranscriptionAdvancedConfig;
 }
 
 export type AddTranslationArgs = Partial<Omit<TranslationConfig, 'target_language'>> & Pick<TranslationConfig, 'target_language'>;
@@ -102,33 +66,15 @@ export interface VoiceTimbreDetectionConfig {
   low_timbre_voices: string[];
 }
 
-export interface SpeechGenerationAdvancedConfig {
-  f0_variance_factor: number;
-  energy_variance_factor: number;
-  with_custom_stress: boolean;
-}
-
 export interface SpeechGenerationConfig {
-  tts_model: 'auto' | string;
   voice_cloning: boolean;
-  voice_cloning_mode: 'static_10' | string;
-  denoise_voice_samples: boolean;
   voice_id: string;
   voice_timbre_detection: VoiceTimbreDetectionConfig;
-  speech_tempo_auto: boolean;
-  speech_tempo_timings_factor: number;
-  speech_tempo_adjustment_factor: number;
-  advanced: SpeechGenerationAdvancedConfig;
 }
 
 export interface TranslationConfig {
   target_language: TargetLangCode;
-  allowed_source_languages: SourceLangCode[];
-  translation_model: 'auto' | 'alpha' | string;
-  allow_translation_glossaries: boolean;
-  style: string | null;
   translate_partial_transcriptions: boolean;
-  advanced: Record<string, unknown>;
   speech_generation: SpeechGenerationConfig;
 }
 
@@ -146,8 +92,7 @@ export type AllowedMessageTypes = (string
   | 'translated_transcription'
   | 'partial_translated_transcription'
   | 'partial_transcription'
-  | 'validated_transcription'
-  | 'pipeline_timings');
+  | 'validated_transcription');
 
 export interface PipelineConfig {
   input_stream: StreamConfig;
