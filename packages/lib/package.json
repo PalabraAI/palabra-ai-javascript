@@ -1,6 +1,6 @@
 {
     "name": "@palabra-ai/translator",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "private": false,
     "main": "dist/lib.js",
     "types": "dist/index.d.ts",
