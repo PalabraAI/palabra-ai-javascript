@@ -1,6 +1,6 @@
 {
     "name": "@palabra-ai/translator",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "private": false,
     "main": "dist/lib.js",
     "types": "dist/index.d.ts",
@@ -20,7 +20,8 @@
     },
     "dependencies": {
         "livekit-client": "2.13.0",
-        "typed-emitter": "^2.1.0"
+        "typed-emitter": "^2.1.0",
+        "ts-deepmerge": "^7.0.3"
     },
     "devDependencies": {
         "@eslint/js": "^9.28.0",

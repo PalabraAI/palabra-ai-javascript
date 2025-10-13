@@ -5,6 +5,7 @@ import {
   PipelineConfig,
   PreprocessingConfig,
   TranscriptionConfig,
+  TranslationConfig,
   TranslationQueueConfig,
   TypeOfPropertyByPath,
 } from '~/config/PipelineConfig.model';
@@ -16,12 +17,31 @@ import {
   translation,
 } from '~/config/PipelineDefaults';
 import { SourceLangCode } from '~/utils/source';
+import { merge } from 'ts-deepmerge';
 
-export class PipelineConfigBuilder {
-  private config: PipelineConfig;
+type BasePipeline = PipelineConfig['pipeline'];
 
-  constructor() {
-    this.config = this.getDefaultWebRtcConfig();
+type CombinedPipeline<T> = BasePipeline & T;
+
+export class PipelineConfigBuilder<T = unknown> {
+  private config: Omit<PipelineConfig, 'pipeline'> & { pipeline: CombinedPipeline<T> };
+  protected extension: T;
+  protected initialExtension: T;
+
+  constructor(initialExtension?: T) {
+    this.extension = structuredClone(initialExtension);
+    this.initialExtension = structuredClone(initialExtension);
+    this.config = this.getMergedConfig();
+  }
+
+  private getMergedConfig(restoreDefaults = false) {
+    const baseConfig = this.getDefaultWebRtcConfig();
+
+    const config = {
+      ...baseConfig,
+      pipeline: merge(baseConfig.pipeline, restoreDefaults ? this.initialExtension : this.extension) as CombinedPipeline<T>,
+    };
+    return config;
   }
 
   private getDefaultWebRtcConfig(): PipelineConfig {
@@ -79,17 +99,21 @@ export class PipelineConfigBuilder {
   }
 
   public restoreDefaults() {
-    this.config = this.getDefaultWebRtcConfig();
+    this.config = this.getMergedConfig(true);
     return this;
   }
 
   public useWebSocket(): this {
-    this.config = this.getDefaultWebSocketConfig();
+    const base = this.getDefaultWebSocketConfig();
+    this.config = {
+      ...base,
+      pipeline: merge(base.pipeline, this.extension) as CombinedPipeline<T>,
+    };
     return this;
   }
 
   public useWebRTC(): this {
-    this.config = this.getDefaultWebRtcConfig();
+    this.config = this.getMergedConfig();
     return this;
   }
 
@@ -137,10 +161,7 @@ export class PipelineConfigBuilder {
    * @returns this
    */
   public setTranscription(config: Partial<TranscriptionConfig>): this {
-    this.config.pipeline.transcription = {
-      ...this.config.pipeline.transcription,
-      ...structuredClone(config),
-    };
+    this.config.pipeline.transcription = merge(this.config.pipeline.transcription, config);
     return this;
   }
 
@@ -151,10 +172,7 @@ export class PipelineConfigBuilder {
    * @returns this
    */
   public addTranslation(config: AddTranslationArgs): this {
-    this.config.pipeline.translations.push({
-      ...translation,
-      ...structuredClone(config),
-    });
+    this.config.pipeline.translations.push(merge(translation, config) as TranslationConfig);
     return this;
   }
 
@@ -170,10 +188,7 @@ export class PipelineConfigBuilder {
    * @returns this
    */
   public setTranslationQueue(config: Partial<TranslationQueueConfig>): this {
-    this.config.pipeline.translation_queue_configs = {
-      ...this.config.pipeline.translation_queue_configs,
-      ...structuredClone(config),
-    };
+    this.config.pipeline.translation_queue_configs = merge(this.config.pipeline.translation_queue_configs, config);
     return this;
   }
 
@@ -210,8 +225,8 @@ export class PipelineConfigBuilder {
     return this;
   }
 
-  public setPipeline(newPipeline: PipelineConfig['pipeline']): PipelineConfig['pipeline'] {
-    this.config.pipeline = structuredClone(newPipeline);
+  public setPipeline(newPipeline: CombinedPipeline<T>): CombinedPipeline<T> {
+    this.config.pipeline = structuredClone(newPipeline) as CombinedPipeline<T>;
     return structuredClone(this.config.pipeline);
   }
 
@@ -219,7 +234,7 @@ export class PipelineConfigBuilder {
    * Build pipeline config
    * @returns PipelineConfig
    */
-  public build(): PipelineConfig {
+  public build(): PipelineConfig & { pipeline: CombinedPipeline<T> } {
     return structuredClone(this.config);
   }
 
@@ -228,22 +243,40 @@ export class PipelineConfigBuilder {
    * @param config - PipelineConfig
    * @returns PipelineConfigBuilder
    */
-  public static fromConfig(config: PipelineConfig): PipelineConfigBuilder {
-    const builder = new PipelineConfigBuilder();
-    builder.config = structuredClone(config);
+  public static fromConfig<E extends Record<string, unknown> = Record<string, unknown>>(config: PipelineConfig, initialExtension?: E): PipelineConfigBuilder<E> {
+    const builder = new PipelineConfigBuilder<E>(initialExtension);
+    builder.config = {
+      ...structuredClone(config),
+      pipeline: merge(config.pipeline, initialExtension ?? {}) as CombinedPipeline<E>,
+    };
     return builder;
   }
 
-  public setValue<P extends AvailablePaths<PipelineConfig['pipeline']>>(path: P, value: TypeOfPropertyByPath<PipelineConfig['pipeline'], P>) {
+  public setValue<P extends AvailablePaths<PipelineConfig['pipeline'] & T>>(path: P, value: TypeOfPropertyByPath<PipelineConfig['pipeline'] & T, P>) {
     const keys = path.split('.');
     const lastKey = keys.pop();
     let parentProp: PipelineConfig['pipeline'] = this.config.pipeline;
-    keys.forEach(k => parentProp = parentProp[k]);
+    keys.forEach((key, index) => {
+      const nextKey = keys[index + 1];
+      const isNextKeyNumeric = /^\d+$/.test(nextKey ?? lastKey);
+      const isCurrentKeyNumeric = /^\d+$/.test(key);
+
+      if (isCurrentKeyNumeric && !Array.isArray(parentProp)) {
+        throw new Error(`Cannot set array index "${key}" on non-array at "${keys.slice(0, index).join('.')}"`);
+      }
+
+      if (parentProp[key] === undefined || parentProp[key] === null) {
+        parentProp[key] = isNextKeyNumeric ? [] : {};
+      }
+
+      parentProp = parentProp[key];
+    });
+
     parentProp[lastKey] = value;
     return this.config.pipeline;
   }
 
-  public getValue<P extends AvailablePaths<PipelineConfig['pipeline']>>(path: P): TypeOfPropertyByPath<PipelineConfig['pipeline'], P> {
-    return path.split('.').reduce((acc, key) => acc[key], this.config.pipeline);
+  public getValue<P extends AvailablePaths<PipelineConfig['pipeline'] & T>>(path: P): TypeOfPropertyByPath<PipelineConfig['pipeline'] & T, P> | undefined {
+    return  path.split('.').reduce((acc, key) => !acc ? undefined : acc[key], this.config.pipeline);
   }
 }

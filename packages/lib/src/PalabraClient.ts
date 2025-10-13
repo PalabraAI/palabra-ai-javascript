@@ -20,7 +20,8 @@ import { supportsAudioContextSetSinkId, VolumeNode } from './utils';
 import { ConnectionState } from 'livekit-client';
 import { PipelineConfig } from './config';
 
-export class PalabraClient extends PalabraBaseEventEmitter {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export class PalabraClient<CM extends PipelineConfigManager<any> = PipelineConfigManager<unknown>> extends PalabraBaseEventEmitter {
   private translateFrom: SourceLangCode;
   private translateTo: TargetLangCode;
   private auth: PalabraClientData['auth'];
@@ -30,7 +31,7 @@ export class PalabraClient extends PalabraBaseEventEmitter {
   private originalTrackVolumeNode: VolumeNode | null = null;
   public transport: PalabraWebRtcTransport | null = null;
   private transportType: PalabraClientData['transportType'];
-  private configManager: PipelineConfigManager;
+  private configManager: CM;
   private audioContext: AudioContext;
 
 
@@ -50,7 +51,7 @@ export class PalabraClient extends PalabraBaseEventEmitter {
 
   private ignoreAudioContext: PalabraClientData['ignoreAudioContext'];
 
-  constructor(data: PalabraClientData) {
+  constructor(data: PalabraClientData<CM>) {
     super();
 
     this.auth = data.auth;
@@ -61,20 +62,21 @@ export class PalabraClient extends PalabraBaseEventEmitter {
 
     this.transportType = data.transportType ?? 'webrtc';
 
-    this.initConfig();
-
     this.shouldPlayTranslation = false;
 
     this.ignoreAudioContext = data.ignoreAudioContext ?? false;
 
-    if (data.audioContext) {
-      this.audioContext = data.audioContext;
+    if (data.configManager) {
+      this.configManager = data.configManager;
     }
+
+    this.initConfig();
+
+    this.initAudioContext(data.audioContext);
   }
 
   public async startTranslation(): Promise<boolean> {
     try {
-      this.initAudioContext();
       await this.wrapOriginalTrack();
       const transport = await this.createSession();
       this.initTransportHandlers();
@@ -93,7 +95,6 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     await this.deleteSession();
     this.transport = null;
     this.stopPlayback();
-    this.closeAudioContext();
     this.cleanUnusedTracks([]);
     this.translationStatus = 'stopped';
     this.cleanupOriginalTrack();
@@ -247,7 +248,7 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     return this.transport;
   }
 
-  public getConfigManager() {
+  public getConfigManager(): CM {
     return this.configManager;
   }
 
@@ -317,6 +318,7 @@ export class PalabraClient extends PalabraBaseEventEmitter {
 
   public async cleanup() {
     await this.stopTranslation();
+    this.closeAudioContext();
     this.initConfig();
   }
 
@@ -337,9 +339,9 @@ export class PalabraClient extends PalabraBaseEventEmitter {
     });
   }
 
-  private async initAudioContext() {
+  private async initAudioContext(audioContext?: AudioContext) {
     if (this.audioContext || this.ignoreAudioContext) return;
-    this.audioContext = new AudioContext();
+    this.audioContext = audioContext ?? new AudioContext();
   }
 
   private closeAudioContext() {
@@ -348,7 +350,9 @@ export class PalabraClient extends PalabraBaseEventEmitter {
   }
 
   private initConfig() {
-    this.configManager = new PipelineConfigManager(this.transportType);
+    if (!this.configManager) {
+      this.configManager = new PipelineConfigManager() as CM;
+    }
 
     this.configManager.setSourceLanguage(this.translateFrom as SourceLangCode);
     this.configManager.addTranslationTarget({ target_language: this.translateTo as TargetLangCode });

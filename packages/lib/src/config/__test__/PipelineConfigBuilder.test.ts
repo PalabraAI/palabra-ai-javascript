@@ -154,6 +154,34 @@ describe('PipelineConfigBuilder WebRtc', () => {
     const config2 = builder.build();
     expect(config2).toEqual(config);
   });
+
+  it('From config should create a config builder with extensions', () => {
+    const config: PipelineConfig & {pipeline: {testProp: number}} = {
+      input_stream: {
+        content_type: 'audio',
+        source: {
+          type: 'webrtc',
+        },
+      },
+      output_stream: {
+        content_type: 'audio',
+        target: {
+          type: 'webrtc',
+        },
+      },
+      pipeline: {
+        preprocessing,
+        transcription,
+        translations: [],
+        translation_queue_configs,
+        allowed_message_types,
+        testProp: 111,
+      },
+    };
+    const builder = PipelineConfigBuilder.fromConfig(config, { testProp: 111 });
+    const config2 = builder.build();
+    expect(config2).toEqual(config);
+  });
 });
 
 
@@ -212,9 +240,162 @@ describe('PipelineConfigBuilder set and get', () => {
     expect(builder.getValue('undefined_property')).toBeUndefined();
   });
 
-  it('setValue & getValue should work with nested paths', () => {
+  it('getValue should return undefined if nested property is not defined', () => {
     const builder = new PipelineConfigBuilder();
-    builder.setValue('preprocessing.enable_vad', false);
-    expect(builder.getValue('preprocessing.enable_vad')).toEqual(false);
+    // @ts-expect-error - This is a test
+    expect(builder.getValue('undefined_property.test.nested')).toBeUndefined();
+  });
+
+  it('setValue & getValue should work with extensions', () => {
+    const builder = new PipelineConfigBuilder({ preprocessing: { testProp: 111 } });
+    expect(builder.getValue('preprocessing.testProp')).toEqual(111);
+  });
+
+  it('setPipeline should work with extensions and build should return the config with the extensions', () => {
+    const builder = new PipelineConfigBuilder({ preprocessing: { testProp: 111 } });
+    builder.setPipeline({
+      preprocessing: {
+        ...preprocessing,
+        testProp: 222,
+      },
+      transcription,
+      translations: [],
+      translation_queue_configs,
+      allowed_message_types,
+    });
+    expect(builder.getValue('preprocessing.testProp')).toEqual(222);
+    const config = builder.build();
+    expect(config.pipeline.preprocessing.testProp).toEqual(222);
+  });
+
+  it('should restore defaults', () => {
+    const builder = new PipelineConfigBuilder({ preprocessing: { testProp: 111 } });
+    builder.setValue('preprocessing.testProp', 222);
+    builder.restoreDefaults();
+    expect(builder.getValue('preprocessing.testProp')).toEqual(111);
+    const config = builder.build();
+    expect(config.pipeline.preprocessing.testProp).toEqual(111);
+  });
+
+
+
+  describe('setValue for new path which is not defined', () => {
+    it('should setValue for new path which is not defined', () => {
+      const builder = new PipelineConfigBuilder();
+      const p1 = 'preprocessingNew.testNew';
+      // @ts-expect-error - This is a test
+      builder.setValue(p1, 222);
+      // @ts-expect-error - This is a test
+      expect(builder.getValue(p1)).toEqual(222);
+    });
+
+    it('should setValue for new path which is not defined and is array', () => {
+      const builder = new PipelineConfigBuilder();
+      const p1 = 'preprocessingNew.testNew.0';
+      const p2 = 'preprocessingNew.testNew.1';
+      // @ts-expect-error - This is a test
+      builder.setValue(p1, { obj: 123 });
+      // @ts-expect-error - This is a test
+      expect(builder.getValue(p1)).toEqual({ obj: 123 });
+      // @ts-expect-error - This is a test
+      expect(builder.getValue('preprocessingNew.testNew')).toBeInstanceOf(Array);
+
+      // @ts-expect-error - This is a test
+      builder.setValue(p2, { obj: 456 });
+      // @ts-expect-error - This is a test
+      expect(builder.getValue(p2)).toEqual({ obj: 456 });
+      // @ts-expect-error - This is a test
+      expect(builder.getValue('preprocessingNew.testNew')).toBeInstanceOf(Array);
+      // @ts-expect-error - This is a test
+      expect(builder.getValue('preprocessingNew.testNew')[1]).toEqual({ obj: 456 });
+    });
+
+    it('should setValue for new path which is not defined and is object', () => {
+      const builder = new PipelineConfigBuilder();
+      const p1 = 'preprocessingNew.testNew';
+      // @ts-expect-error - This is a test
+      builder.setValue(p1, { obj: 123 });
+      // @ts-expect-error - This is a test
+      expect(builder.getValue(p1)).toEqual({ obj: 123 });
+      // @ts-expect-error - This is a test
+      expect(builder.getValue('preprocessingNew.testNew')).toBeInstanceOf(Object);
+      // @ts-expect-error - This is a test
+      expect(builder.getValue('preprocessingNew.testNew').obj).toEqual(123);
+      // @ts-expect-error - This is a test
+      builder.setValue('preprocessingNew.testNew.obj', 555);
+      // @ts-expect-error - This is a test
+      expect(builder.getValue('preprocessingNew.testNew.obj')).toEqual(555);
+      // @ts-expect-error - This is a test
+      builder.setValue('preprocessingNew.testNew.nts', { test: 555 });
+      // @ts-expect-error - This is a test
+      expect(builder.getValue('preprocessingNew.testNew')).toEqual({
+        nts: {
+          test: 555,
+        },
+        obj: 555,
+      });
+    });
+
+    it('should setValue throw error if we try set array index on non-array', () => {
+      const builder = new PipelineConfigBuilder();
+      const p1 = 'preprocessingNew.testNew';
+      // @ts-expect-error - This is a test
+      builder.setValue(p1, { obj: 123 });
+      // @ts-expect-error - This is a test
+      expect(builder.getValue(p1)).toEqual({ obj: 123 });
+      // @ts-expect-error - This is a test
+      expect(()=>builder.setValue('preprocessingNew.0.0', 555)).toThrow();
+    });
+
+    it('should setValue not throw error if we try set by numeric index', () => {
+      const builder = new PipelineConfigBuilder();
+      const p1 = 'preprocessingNew.testNew';
+      // @ts-expect-error - This is a test
+      builder.setValue(p1, { obj: 123 });
+      // @ts-expect-error - This is a test
+      expect(builder.getValue(p1)).toEqual({ obj: 123 });
+      // @ts-expect-error - This is a test
+      expect(()=>builder.setValue('preprocessingNew."0".0', 555)).not.toThrow();
+      // @ts-expect-error - This is a test
+      expect(builder.getValue('preprocessingNew."0".0')).toEqual(555);
+    });
+  });
+
+  describe('deepMerge', () => {
+    it('should return default config for webrtc', () => {
+      const builder = new PipelineConfigBuilder();
+      const config = builder.build();
+      expect(config).toEqual({
+        input_stream: {
+          content_type: 'audio',
+          source: {
+            type: 'webrtc',
+          },
+        },
+        output_stream: {
+          content_type: 'audio',
+          target: {
+            type: 'webrtc',
+          },
+        },
+        pipeline: {
+          preprocessing,
+          transcription,
+          translations: [],
+          translation_queue_configs,
+          allowed_message_types,
+        },
+      });
+    });
+
+    it('should return default with merged extensions', () => {
+      const builder = new PipelineConfigBuilder({ preprocessing: { testProp: 111 } });
+      const config = builder.build();
+      expect(config.pipeline.preprocessing.testProp).toEqual(111);
+      expect(config.pipeline.preprocessing).toEqual({
+        ...preprocessing,
+        testProp: 111,
+      });
+    });
   });
 });

@@ -4,10 +4,38 @@ import { preprocessing, transcription, translation_queue_configs, allowed_messag
 import { PipelineConfig } from '~/config/PipelineConfig.model';
 
 describe('PipelineConfigManager', () => {
-  let manager: PipelineConfigManager;
+  let manager: PipelineConfigManager<{ ff: number }>;
   beforeEach(() => {
     manager = new PipelineConfigManager();
   });
+
+  it('Should create a config manager with extensions', () => {
+    const manager = new PipelineConfigManager({ initialExtension: { additional_config: 1 } });
+    const config = manager.getConfig();
+    expect(config).toEqual({
+      input_stream: {
+        content_type: 'audio',
+        source: {
+          type: 'webrtc',
+        },
+      },
+      output_stream: {
+        content_type: 'audio',
+        target: {
+          type: 'webrtc',
+        },
+      },
+      pipeline: {
+        preprocessing,
+        transcription,
+        translations: [],
+        translation_queue_configs,
+        allowed_message_types,
+        additional_config: 1,
+      },
+    });
+  });
+
   it('Should create a default config with WebRTC input and output', () => {
     const config = manager.getConfig();
     expect(config).toEqual({
@@ -55,7 +83,7 @@ describe('PipelineConfigManager', () => {
         allowed_message_types: ['translated_transcription', 'partial_translated_transcription'],
       },
     };
-    const manager = PipelineConfigManager.fromConfig(config, 'webrtc');
+    const manager = PipelineConfigManager.fromConfig(config, {}, 'webrtc');
     const config2 = manager.getConfig();
     expect(config2).toEqual(config);
   });
@@ -116,5 +144,15 @@ describe('PipelineConfigManager', () => {
         allowed_message_types,
       },
     });
+  });
+
+  it('should restore defaults', () => {
+    const manager = new PipelineConfigManager({ initialExtension: { preprocessing: { testProp: 111 } } });
+    manager.setValue('preprocessing.testProp', 222);
+    expect(manager.getValue('preprocessing.testProp')).toEqual(222);
+    manager.restoreDefaults();
+    expect(manager.getValue('preprocessing.testProp')).toEqual(111);
+    const config = manager.getConfig();
+    expect(config.pipeline.preprocessing.testProp).toEqual(111);
   });
 });

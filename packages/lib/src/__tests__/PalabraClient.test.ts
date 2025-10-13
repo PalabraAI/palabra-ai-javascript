@@ -3,6 +3,7 @@ import { PalabraClient } from '../PalabraClient';
 import type { TargetLangCode } from '../utils/target';
 import type { SourceLangCode } from '../utils/source';
 import { EVENT_START_TRANSLATION, EVENT_STOP_TRANSLATION } from '../transport/PalabraWebRtcTransport.model';
+import { PipelineConfigManager } from '~/config';
 
 // Mock MediaStreamTrack for tests
 class MockMediaStreamTrack {
@@ -138,6 +139,88 @@ describe('PalabraClient', () => {
 
   beforeEach(() => {
     client = new PalabraClient(baseConstructorData);
+  });
+
+  describe('ConfigManager', () => {
+    it('should set value and get value with extensions', ()=>{
+      const manager = new PipelineConfigManager({ initialExtension: { testProp: 12 } });
+
+      const cl = new PalabraClient({ ...baseConstructorData, configManager: manager });
+      expect((cl.getConfigManager()).getValue('testProp')).toBe(12);
+
+      (cl.getConfigManager()).setValue('testProp', 13);
+      expect((cl.getConfigManager()).getValue('testProp')).toBe(13);
+
+      manager.setValue('testProp', 14);
+      expect((cl.getConfigManager()).getValue('testProp')).toBe(14);
+    });
+
+    it('should set value and get value without extensions', ()=>{
+      const cl = new PalabraClient({ ...baseConstructorData });
+      expect((cl.getConfigManager()).getValue('preprocessing.enable_vad')).toBe(true);
+    });
+  });
+
+  describe('AudioContext', () => {
+    it('should not close AudioContext in stopTranslation', async () => {
+      const closeAudioContextSpy = vi.spyOn(client as unknown as { closeAudioContext: () => void }, 'closeAudioContext').mockImplementation(() => undefined);
+      await client.stopTranslation();
+      expect(closeAudioContextSpy).not.toHaveBeenCalled();
+    });
+
+    it('should not call close method on AudioContext in stopTranslation', async() => {
+      const ctx = new AudioContext();
+      const closeAudioContextSpy = vi.spyOn(ctx, 'close').mockImplementation(() => undefined);
+      const localClient = new PalabraClient({ ...baseConstructorData, audioContext: ctx });
+      await localClient.stopTranslation();
+      expect(closeAudioContextSpy).not.toHaveBeenCalled();
+    });
+
+    it('should close AudioContext in cleanup', async () => {
+      const closeAudioContextSpy = vi.spyOn(client as unknown as { closeAudioContext: () => void }, 'closeAudioContext').mockImplementation(() => undefined);
+      await client.cleanup();
+      expect(closeAudioContextSpy).toHaveBeenCalled();
+    });
+
+    it('should ignore AudioContext creation when ignoreAudioContext is true and audioContext is provided', async() => {
+      const ctx = new AudioContext();
+      const localClient = new PalabraClient({ ...baseConstructorData, audioContext: ctx, ignoreAudioContext: true });
+      // @ts-expect-error: audioContext is private
+      expect(localClient.audioContext).toBeUndefined();
+    });
+
+    it('should create a new AudioContext when ignoreAudioContext is false and audioContext is not provided', async() => {
+      const localClient = new PalabraClient({ ...baseConstructorData, ignoreAudioContext: false });
+      // @ts-expect-error: audioContext is private
+      expect(localClient.audioContext).toBeDefined();
+    });
+
+    it('should use provided AudioContext', async() => {
+      const ctx = new AudioContext();
+      // @ts-expect-error field for test
+      ctx.field = 'test';
+
+      const localClient = new PalabraClient({ ...baseConstructorData, audioContext: ctx, ignoreAudioContext: false });
+      // @ts-expect-error: audioContext is private
+      expect(localClient.audioContext).toBeDefined();
+      // @ts-expect-error: field for test
+      expect(localClient.audioContext.field).toBe('test');
+    });
+
+    it('should create a new AudioContext when audioContext is not provided', async() => {
+      const localClient = new PalabraClient(baseConstructorData);
+      await localClient.startTranslation();
+      // @ts-expect-error: audioContext is private
+      expect(localClient.audioContext).toBeDefined();
+    });
+  });
+
+  it('should get api client', () => {
+    expect(client.getApiClient()).toBeDefined();
+  });
+
+  it('should get config manager', () => {
+    expect(client.getConfigManager()).toBeDefined();
   });
 
   it('should create a new PalabraClient', () => {
