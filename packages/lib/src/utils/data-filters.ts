@@ -31,9 +31,7 @@ export const filterTranslationData = (data: DataReceivedEventPayload):Transcript
 
 export const filterTranscriptionData = (data: DataReceivedEventPayload): TranscriptionData | null => {
   if (data.message_type === 'validated_transcription') {
-    if (typeof data.data === 'object') {
-      return data.data as TranscriptionData;
-    }
+    return tryParse(data.data) as TranscriptionData;
   }
   return null;
 };
@@ -47,9 +45,7 @@ export const filterPartialTranslatedTranscriptionData = (data: DataReceivedEvent
 
 export const filterPartialTranscriptionData = (data: DataReceivedEventPayload): TranscriptionData | null => {
   if (data.message_type === 'partial_transcription') {
-    if (typeof data.data === 'object') {
-      return data.data as TranscriptionData;
-    }
+    return tryParse(data.data) as TranscriptionData;
   }
   return null;
 };
