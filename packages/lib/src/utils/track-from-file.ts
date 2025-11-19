@@ -37,7 +37,5 @@ export const createTrackFromFile = async (
     throw new Error('No audio track found');
   }
 
-  URL.revokeObjectURL(audioUrl);
-
   return { track: audioTrack, audioElement };
 };
