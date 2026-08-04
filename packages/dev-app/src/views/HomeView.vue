@@ -53,6 +53,27 @@ const route = useRoute();
       >
         Change Audio Output Device
       </router-link>
+      <router-link
+        to="/text-to-speech"
+        class="mx-4 px-4 py-2 rounded-md transition-colors"
+        :class="route.path === '/text-to-speech' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'"
+      >
+        Text To Speech
+      </router-link>
+      <router-link
+        to="/text-to-speech-audio-element"
+        class="mx-4 px-4 py-2 rounded-md transition-colors"
+        :class="route.path === '/text-to-speech-audio-element' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'"
+      >
+        TTS → Audio Element
+      </router-link>
+      <router-link
+        to="/speech-to-text"
+        class="mx-4 px-4 py-2 rounded-md transition-colors"
+        :class="route.path === '/speech-to-text' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'"
+      >
+        Speech To Text
+      </router-link>
     </nav>
   </header>
   <main class="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">

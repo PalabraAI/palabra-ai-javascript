@@ -5,6 +5,9 @@ import AdvancedTranslator from '../views/examples/AdvancedTranslator.vue'
 import AudioElement from '../views/examples/AudioElement.vue'
 import FromAudioFile from '../views/examples/FromAudioFile.vue'
 import ChangeAudioOutputDevice from '@/views/examples/ChangeAudioOutputDevice.vue'
+import TextToSpeech from '@/views/examples/TextToSpeech.vue'
+import TextToSpeechAudioElement from '@/views/examples/TextToSpeechAudioElement.vue'
+import SpeechToText from '@/views/examples/SpeechToText.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -38,6 +41,21 @@ const router = createRouter({
           path: '/change-audio-output-device',
           name: 'change-audio-output-device',
           component: ChangeAudioOutputDevice
+        },
+        {
+          path: '/text-to-speech',
+          name: 'text-to-speech',
+          component: TextToSpeech
+        },
+        {
+          path: '/text-to-speech-audio-element',
+          name: 'text-to-speech-audio-element',
+          component: TextToSpeechAudioElement
+        },
+        {
+          path: '/speech-to-text',
+          name: 'speech-to-text',
+          component: SpeechToText
         }
       ]
     },

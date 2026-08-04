@@ -10,7 +10,7 @@ import {
 } from '~/transport/PalabraWebRtcTransport.model';
 import { ErrorData, PipelineTimings, TranscriptionData } from '~/utils/data-filters.model';
 
-const tryParse = (data: unknown) => {
+export const tryParse = (data: unknown) => {
   if (typeof data === 'object') {
     return data;
   }
