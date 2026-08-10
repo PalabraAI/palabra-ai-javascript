@@ -287,6 +287,48 @@ const startPlayback = () => {
 
 The examples below show how to integrate Palabra's real-time translation into any web application and control audio output as needed.
 
+## Realtime STT
+
+Speech to text over a websocket is covered by `PalabraAsrClient`:
+
+```ts
+import { PalabraAsrClient, getLocalAudioTrack, EVENT_ASR_TRANSCRIPTION_RECEIVED } from '@palabra-ai/translator';
+
+const asrClient = new PalabraAsrClient({
+  auth: { apiKey: 'YOUR_API_KEY' },
+  language: 'en',
+  handleOriginalTrack: getLocalAudioTrack,
+});
+
+asrClient.on(EVENT_ASR_TRANSCRIPTION_RECEIVED, (data) => console.log(data?.segment.text));
+
+await asrClient.startTranscription();
+```
+
+The API reference lives in [`packages/lib/README.md`](./packages/lib/README.md#palabraasrclient).
+
+## Realtime TTS
+
+Text to speech over a websocket is covered by `PalabraTtsClient`:
+
+```ts
+import { PalabraTtsClient } from '@palabra-ai/translator';
+
+const ttsClient = new PalabraTtsClient({
+  auth: { apiKey: 'YOUR_API_KEY' },
+  language: 'en',
+});
+
+await ttsClient.startSession();
+await ttsClient.startPlayback();
+await ttsClient.speak('Hello, how can I help you today?');
+```
+
+See [`packages/lib/TTS.md`](./packages/lib/TTS.md) for the use cases (streaming an LLM answer, barge-in,
+pre-rendering a file, publishing the speech into a call, server side generation) and for taking the playback
+over — own `<audio>` element, own audio graph, raw `pcm` chunks or the transport alone.
+The API reference lives in [`packages/lib/README.md`](./packages/lib/README.md#palabrattsclient).
+
 ## Monorepo Structure
 ## Development Setup
 

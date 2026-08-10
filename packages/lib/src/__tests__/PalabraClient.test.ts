@@ -3,6 +3,7 @@ import { PalabraClient } from '../PalabraClient';
 import type { TargetLangCode } from '../utils/target';
 import type { SourceLangCode } from '../utils/source';
 import { EVENT_START_TRANSLATION, EVENT_STOP_TRANSLATION } from '../transport/PalabraWebRtcTransport.model';
+import { PalabraWebRtcTransport } from '../transport/PalabraWebRtcTransport';
 import { PipelineConfigManager } from '~/config';
 
 // Mock MediaStreamTrack for tests
@@ -393,5 +394,55 @@ describe('PalabraClient', () => {
       });
     await client.stopPlayback();
     expect(mockDetach).toHaveBeenCalled();
+  });
+
+  describe('createSession hook (queue / bring-your-own credentials)', () => {
+    const noAuthData = { ...baseConstructorData, auth: undefined };
+
+    it('throws when neither auth nor createSession is provided', () => {
+      expect(() => new PalabraClient(noAuthData)).toThrow(/auth.*createSession/);
+    });
+
+    it('constructs without auth when createSession is provided (no api client)', () => {
+      const createSession = vi.fn().mockResolvedValue({ streamUrl: 'wss://queue', accessToken: 'queue-token' });
+      const cl = new PalabraClient({ ...noAuthData, createSession });
+      expect(cl.getApiClient()).toBeUndefined();
+    });
+
+    it('uses the hook credentials and skips the session API on startTranslation', async () => {
+      const createSession = vi.fn().mockResolvedValue({ streamUrl: 'wss://queue', accessToken: 'queue-token' });
+      const cl = new PalabraClient({ ...noAuthData, createSession });
+
+      vi.mocked(PalabraWebRtcTransport).mockClear();
+      await cl.startTranslation();
+
+      expect(createSession).toHaveBeenCalledOnce();
+      expect(PalabraWebRtcTransport).toHaveBeenCalledWith(
+        expect.objectContaining({ streamUrl: 'wss://queue', accessToken: 'queue-token' }),
+      );
+
+      expect((cl as unknown as { sessionData: unknown }).sessionData).toBeNull();
+    });
+
+    it('re-invokes the hook on each startTranslation (short-lived tokens)', async () => {
+      const createSession = vi.fn().mockResolvedValue({ streamUrl: 'wss://queue', accessToken: 'queue-token' });
+      const cl = new PalabraClient({ ...noAuthData, createSession });
+
+      await cl.startTranslation();
+      await cl.stopTranslation();
+      await cl.startTranslation();
+
+      expect(createSession).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not call the session API to tear down a hook session', async () => {
+      const createSession = vi.fn().mockResolvedValue({ streamUrl: 'wss://queue', accessToken: 'queue-token' });
+      const cl = new PalabraClient({ ...noAuthData, createSession });
+
+      await cl.startTranslation();
+      await cl.stopTranslation();
+
+      expect((cl as unknown as { transport: unknown }).transport).toBeNull();
+    });
   });
 });

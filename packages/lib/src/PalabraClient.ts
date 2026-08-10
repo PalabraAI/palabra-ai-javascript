@@ -25,7 +25,8 @@ export class PalabraClient<CM extends PipelineConfigManager<any> = PipelineConfi
   private translateFrom: SourceLangCode;
   private translateTo: TargetLangCode;
   private auth: PalabraClientData['auth'];
-  private apiClient: PalabraApiClient;
+  private apiClient?: PalabraApiClient;
+  private createSessionProvider?: PalabraClientData['createSession'];
   private handleOriginalTrack: PalabraClientData['handleOriginalTrack'];
   private originalTrack: MediaStreamTrack | null = null;
   private originalTrackVolumeNode: VolumeNode | null = null;
@@ -55,10 +56,18 @@ export class PalabraClient<CM extends PipelineConfigManager<any> = PipelineConfi
     super();
 
     this.auth = data.auth;
+    this.createSessionProvider = data.createSession;
     this.translateFrom = data.translateFrom;
     this.translateTo = data.translateTo;
     this.handleOriginalTrack = data.handleOriginalTrack;
-    this.apiClient = new PalabraApiClient(this.auth, data.apiBaseUrl ?? 'https://api.palabra.ai', data.intent);
+
+    if (!this.auth && !this.createSessionProvider) {
+      throw new Error('Either `auth` or `createSession` must be provided');
+    }
+
+    if (this.auth) {
+      this.apiClient = new PalabraApiClient(this.auth, data.apiBaseUrl ?? 'https://api.palabra.ai', data.intent);
+    }
 
     this.transportType = data.transportType ?? 'webrtc';
 
@@ -225,6 +234,30 @@ export class PalabraClient<CM extends PipelineConfigManager<any> = PipelineConfi
   }
 
   protected async createSession() {
+    if (!this.originalTrack) {
+      throw new Error('No original track available for session creation');
+    }
+
+    const { streamUrl, accessToken } = this.createSessionProvider
+      ? await this.createSessionProvider()
+      : await this.createSessionViaApi();
+
+    this.transport = new PalabraWebRtcTransport({
+      streamUrl,
+      accessToken,
+      inputStream: new MediaStream([this.originalTrack]),
+      configManager: this.configManager,
+      audioContext: supportsAudioContextSetSinkId() ? this.audioContext : undefined,
+    });
+
+    return this.transport;
+  }
+
+  private async createSessionViaApi() {
+    if (!this.apiClient) {
+      throw new Error('No api client configured for session creation');
+    }
+
     const sessionResponse = await this.apiClient.createStreamingSession();
 
     if (!sessionResponse || !sessionResponse.ok) {
@@ -237,15 +270,10 @@ export class PalabraClient<CM extends PipelineConfigManager<any> = PipelineConfi
 
     this.sessionData = sessionResponse.data;
 
-    this.transport = new PalabraWebRtcTransport({
+    return {
       streamUrl: sessionResponse.data.webrtc_url,
       accessToken: sessionResponse.data.publisher,
-      inputStream: new MediaStream([this.originalTrack]),
-      configManager: this.configManager,
-      audioContext: supportsAudioContextSetSinkId() ? this.audioContext : undefined,
-    });
-
-    return this.transport;
+    };
   }
 
   public getConfigManager(): CM {
@@ -257,6 +285,9 @@ export class PalabraClient<CM extends PipelineConfigManager<any> = PipelineConfi
   }
 
   protected async deleteSession() {
+    if (this.createSessionProvider || !this.apiClient) {
+      return;
+    }
     if (!this.sessionData) {
       console.error('No session data found');
       return;

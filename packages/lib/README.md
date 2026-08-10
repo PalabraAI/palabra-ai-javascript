@@ -287,6 +287,208 @@ const startPlayback = () => {
 
 The examples below show how to integrate Palabra's real-time translation into any web application and control audio output as needed.
 
+## PalabraAsrClient
+
+The `PalabraAsrClient` class is the entry point for the [realtime STT API](https://docs.palabra.ai/docs/streaming_api/realtime_stt).
+It captures an audio track, streams it to the API as raw chunks and emits partial, final and translated transcriptions.
+
+### Features
+
+* Opens an STT session over a websocket, the whole configuration goes into the query
+* Captures the track into `pcm_s16le` chunks of 320 ms with an `AudioWorklet`
+* Emits partial results while speaking and final ones on every end of sentence
+* Optionally emits translations of the final transcriptions
+* Mutes the source track without dropping the session
+
+### Constructor
+
+```ts
+new PalabraAsrClient(options: PalabraAsrClientData)
+```
+
+#### Parameters
+
+* `auth`: `{ apiKey }` — API key from [platform.palabra.ai/api-keys](https://platform.palabra.ai/api-keys)
+* `createSession` (optional): function returning `{ streamUrl, token }`, use it to keep the API key on your backend
+* `handleOriginalTrack`: function returning the track to transcribe, `getLocalAudioTrack` covers the microphone
+* `language` (optional): spoken language, `auto` (default) lets the API detect it
+* `translateLanguages` (optional): target languages of the `translated_transcription` messages
+* `enableFillerFilter` (optional): filler filter, enabled by the API for every language except Japanese
+* `wsBaseUrl` (optional): `ASR_WS_BASE_URL_EU` (default) or `ASR_WS_BASE_URL_US`
+* `audioContext` (optional): existing audio context to capture in
+* `chunkMs` (optional): size of the audio chunks, defaults to the recommended 320 ms
+
+### Public Methods
+
+- `startTranscription(): Promise<boolean>` — take the track, connect and start streaming
+- `stopTranscription(): Promise<void>` — stop the capture, close the socket and release the track
+- `muteOriginalTrack()` / `unmuteOriginalTrack()` / `isOriginalTrackMuted()`
+- `setLanguage(language)`, `setTranslateLanguages(languages)` — restart an ongoing session, the config lives in the query
+- `getConfig()`, `getSessionStatus()`, `getConnectionStatus()`, `getOriginalTrack()`
+- `cleanup(): Promise<void>` — stop the session and close the audio context
+
+### Events
+
+`EVENT_ASR_SESSION_STARTED` / `EVENT_ASR_SESSION_STOPPED` - The STT session has been opened or closed.
+`EVENT_ASR_CONNECTED` / `EVENT_ASR_DISCONNECTED` - The websocket has been opened or closed (the close code and reason are passed).
+`EVENT_ASR_CONNECTION_STATE_CHANGED` - The connection state has changed (`connecting`, `connected`, `disconnected`).
+`EVENT_ASR_PARTIAL_TRANSCRIPTION_RECEIVED` - A partial transcription, updated while the phrase is still being spoken.
+`EVENT_ASR_TRANSCRIPTION_RECEIVED` - A final transcription (`is_eos: true`).
+`EVENT_ASR_TRANSLATED_TRANSCRIPTION_RECEIVED` - A translation of a final transcription, only with `translateLanguages` set.
+`EVENT_ASR_ERROR_RECEIVED` - A websocket level error.
+`EVENT_ASR_MESSAGE_RECEIVED` - A raw message from the API.
+
+### Usage Example
+
+```ts
+import {
+  PalabraAsrClient,
+  getLocalAudioTrack,
+  EVENT_ASR_PARTIAL_TRANSCRIPTION_RECEIVED,
+  EVENT_ASR_TRANSCRIPTION_RECEIVED,
+} from '@palabra-ai/translator';
+
+const asrClient = new PalabraAsrClient({
+  auth: { apiKey: 'YOUR_API_KEY' },
+  language: 'en',
+  translateLanguages: ['es'],
+  handleOriginalTrack: getLocalAudioTrack,
+});
+
+asrClient.on(EVENT_ASR_PARTIAL_TRANSCRIPTION_RECEIVED, (data) => {
+  console.log('partial', data?.segment.text);
+});
+
+asrClient.on(EVENT_ASR_TRANSCRIPTION_RECEIVED, (data) => {
+  console.log('final', data?.segment.text);
+});
+
+await asrClient.startTranscription();
+
+// ...
+
+await asrClient.stopTranscription();
+await asrClient.cleanup();
+```
+
+### Notes
+
+* The API keeps **one active session per key**: a second connection is rejected with `409` during the upgrade,
+  so close the previous session before opening a new one.
+* The configuration is passed in the query, so changing the language or the translation targets reconnects.
+* Audio is sent as raw binary frames in the sample rate of the audio context, which is declared in the query.
+* After a successful upgrade the API reports problems by closing the socket, there are no error messages on the wire.
+
+---
+
+## PalabraTtsClient
+
+The `PalabraTtsClient` class is the entry point for the [realtime TTS API](https://docs.palabra.ai/docs/streaming_api/realtime_tts).
+It keeps a websocket session, streams text to synthesize and plays the received audio chunks back gapless.
+
+> 📖 [**TTS.md**](./TTS.md) — use cases, custom playback (own `<audio>` element, audio graph, WebRTC, raw chunks,
+> Node.js), limits and gotchas.
+
+### Features
+
+* Opens a TTS session over a websocket and sends the `init` message
+* Splits text into chunks accepted by the API and respects its rate limits
+* Plays `pcm` chunks back to back through an `AudioContext`
+* Exposes the synthesized speech as a `MediaStreamTrack`
+* Emits events for audio chunks, finished generations and API errors
+
+### Constructor
+
+```ts
+new PalabraTtsClient(options: PalabraTtsClientData)
+```
+
+#### Parameters
+
+* `auth`: `{ apiKey }` — API key from [platform.palabra.ai/api-keys](https://platform.palabra.ai/api-keys)
+* `createSession` (optional): function returning `{ streamUrl, token }`, use it to keep the API key on your backend
+* `language`: language of the synthesized speech (e.g., 'en')
+* `model` (optional): TTS model id (defaults to `auto`)
+* `voiceOptions` (optional): `voice_id`, `speed` (0–2), `deaccent_strength` (0–1)
+* `output` (optional): `format` (`pcm` | `mp3` | `wav`) and `sample_rate` (8000–48000), only `pcm` can be played chunk by chunk
+* `wsBaseUrl` (optional): `TTS_WS_BASE_URL_EU` (default) or `TTS_WS_BASE_URL_US`
+* `audioContext` (optional): existing audio context to play the speech in — its own rate then wins over `output.sample_rate`
+* `ignoreAudioContext` (optional): skip the playback chain and only emit audio chunks
+
+### Public Methods
+
+- `startSession(): Promise<boolean>` — connect the websocket and send the `init` message
+- `stopSession(): Promise<void>` — close the session and release the playback chain
+- `speak(text: string, options?: TtsSpeakOptions): Promise<string>` — stream text, returns the `generationId`
+- `cancel(): Promise<void>` — drop everything that is still being synthesized
+- `startPlayback(): Promise<void>` / `stopPlayback(): Promise<void>`
+- `setVolume(volume: number): void` / `getVolume(): number`
+- `getSpeechTrack(): MediaStreamTrack | null`
+- `setLanguage(language)`, `setVoiceOptions(options)`, `setOutput(output)` — the `init` message is immutable within a session, so an ongoing session is restarted
+- `getConfig()`, `getSessionStatus()`, `getConnectionStatus()`
+- `cleanup(): Promise<void>` — stop the session and close the audio context
+
+### Events
+
+`EVENT_TTS_SESSION_STARTED` / `EVENT_TTS_SESSION_STOPPED` - The TTS session has been opened or closed.
+`EVENT_TTS_CONNECTED` / `EVENT_TTS_DISCONNECTED` - The websocket has been opened or closed (the close code and reason are passed).
+`EVENT_TTS_CONNECTION_STATE_CHANGED` - The connection state has changed (`connecting`, `connected`, `disconnected`).
+`EVENT_TTS_AUDIO_CHUNK_RECEIVED` - An audio chunk has been received (base64 audio, `generation_id`, `last_chunk`).
+`EVENT_TTS_GENERATION_COMPLETED` - The last chunk of a generation has been received.
+`EVENT_TTS_PLAYBACK_STARTED` / `EVENT_TTS_PLAYBACK_ENDED` - The playback of the scheduled chunks has started or drained.
+`EVENT_TTS_ERROR_RECEIVED` - The API reported an error (see `TTS_RETRYABLE_ERROR_CODES`).
+`EVENT_TTS_MESSAGE_RECEIVED` - A raw message from the API.
+`EVENT_TTS_VOLUME_CHANGED` - The playback volume has changed.
+
+### Usage Example
+
+```ts
+import {
+  PalabraTtsClient,
+  EVENT_TTS_GENERATION_COMPLETED,
+  EVENT_TTS_ERROR_RECEIVED,
+} from '@palabra-ai/translator';
+
+const ttsClient = new PalabraTtsClient({
+  auth: { apiKey: 'YOUR_API_KEY' },
+  language: 'en',
+  voiceOptions: { voice_id: 'default_low', speed: 1.0 },
+});
+
+ttsClient.on(EVENT_TTS_GENERATION_COMPLETED, ({ generationId }) => {
+  console.log('finished', generationId);
+});
+
+ttsClient.on(EVENT_TTS_ERROR_RECEIVED, (error) => {
+  console.error(error);
+});
+
+await ttsClient.startSession();
+await ttsClient.startPlayback();
+
+// a long text is split into chunks automatically
+await ttsClient.speak('Hello, how can I help you today?');
+
+// stream a sentence in parts and finalize it with the last call
+const generationId = await ttsClient.speak('One moment', { isEos: false });
+await ttsClient.speak('please', { generationId });
+
+await ttsClient.stopSession();
+await ttsClient.cleanup();
+```
+
+Attach the speech to your own element instead of the default output:
+
+```ts
+await ttsClient.startSession();
+
+const audioElement = new Audio();
+audioElement.srcObject = new MediaStream([ttsClient.getSpeechTrack()!]);
+await audioElement.play();
+```
+
+---
+
 ## Monorepo Structure
 ## Development Setup
 

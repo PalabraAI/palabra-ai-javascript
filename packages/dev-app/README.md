@@ -50,6 +50,26 @@ The application will be available at `http://localhost:5173` (or another port if
    - Dynamic language switching
    - Advanced error handling
 
+3. **Text To Speech** (`/text-to-speech`)
+   - Realtime TTS session over a websocket
+   - Streaming text and gapless playback of `pcm` chunks
+   - Cancelling the ongoing synthesis
+   - Language, voice and speed switching
+   - Requires `VITE_PALABRA_API_KEY`
+
+4. **Text To Speech → Audio Element** (`/text-to-speech-audio-element`)
+   - Speech track from `getSpeechTrack()` attached to an `<audio>` element instead of `startPlayback()`
+   - Native element controls for volume, mute and pause
+   - Output device routing with `setSinkId`
+   - Requires `VITE_PALABRA_API_KEY`
+
+5. **Speech To Text** (`/speech-to-text`)
+   - Realtime STT session over a websocket
+   - Microphone captured into 320 ms `pcm_s16le` chunks
+   - Partial results live, final ones appended to the transcript
+   - Optional translation of the final transcriptions
+   - Requires `VITE_PALABRA_API_KEY`
+
 ## Environment Variables
 
 | Variable | Description |
@@ -57,5 +77,6 @@ The application will be available at `http://localhost:5173` (or another port if
 | `VITE_PALABRA_CLIENT_ID` | Your Palabra API client ID |
 | `VITE_PALABRA_CLIENT_SECRET` | Your Palabra API client secret |
 | `VITE_PALABRA_ENDPOINT` | Your API url (optional) |
+| `VITE_PALABRA_API_KEY` | Your Palabra API key, used by the Text To Speech example |
 
 To obtain these credentials, please contact the Palabra team. 

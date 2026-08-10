@@ -11,10 +11,15 @@ export interface UserTokenAuth {
   userToken: string;
 }
 
+export interface SessionCredentials {
+  streamUrl: string;
+  accessToken: string;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface PalabraClientData<CM extends PipelineConfigManager<any> = PipelineConfigManager<any>> {
-  auth:ClientCredentialsAuth | UserTokenAuth;
+  auth?: ClientCredentialsAuth | UserTokenAuth;
+  createSession?: () => Promise<SessionCredentials>;
   translateFrom: SourceLangCode;
   translateTo: TargetLangCode;
   handleOriginalTrack: () => Promise<MediaStreamTrack>;
