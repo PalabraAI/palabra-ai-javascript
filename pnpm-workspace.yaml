@@ -1,5 +1,9 @@
 packages:
   - packages/*
+  # The playground is npm-only on purpose: it pins the published @palabra-ai/translator and ships
+  # its own package-lock.json, so the AI-agent onboarding prompt can `npm ci` it without pnpm or a
+  # library build. Keeping it out of the workspace leaves the root lockfile untouched.
+  - '!packages/playground'
 allowBuilds:
   '@tailwindcss/oxide': true
   esbuild: true

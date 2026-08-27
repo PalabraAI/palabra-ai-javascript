@@ -1,0 +1,38 @@
+name: Playground smoke
+
+# Repeats exactly what the AI-agent onboarding prompt does with packages/playground: plain npm,
+# no pnpm, no library build. The weekly run catches environment rot, not just commits.
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/playground/**'
+      - '.github/workflows/playground-smoke.yml'
+  pull_request:
+    paths:
+      - 'packages/playground/**'
+      - '.github/workflows/playground-smoke.yml'
+  schedule:
+    - cron: '0 6 * * 1'
+
+defaults:
+  run:
+    working-directory: packages/playground
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/playground/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Serve and probe
+        run: |
+          npm run preview -- --port 4173 &
+          sleep 3
+          curl -sf http://localhost:4173/ | grep -q "Palabra Playground"
