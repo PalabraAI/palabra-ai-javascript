@@ -19,12 +19,12 @@ export interface RemoteTrackInfo {
 
 export interface DataReceivedEvent {
   payload: DataReceivedEventPayload;
-  participant: RemoteParticipant;
-  topic: string;
+  participant?: RemoteParticipant;
+  topic?: string;
 }
 
 export interface DataReceivedEventPayload {
-  message_type: AllowedMessageTypes;
+  message_type: AllowedMessageTypes | 'task_status' | 'current_task';
   data?: unknown;
 }
 

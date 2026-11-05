@@ -1,6 +1,6 @@
 {
     "name": "@palabra-ai/translator",
-    "version": "0.0.11",
+    "version": "0.0.12",
     "private": false,
     "main": "dist/lib.js",
     "types": "dist/index.d.ts",
@@ -13,13 +13,14 @@
     "type": "module",
     "scripts": {
         "dev": "vite build --watch",
-        "build": "pnpm test && pnpm lint && vite build",
+        "build": "pnpm test && pnpm lint && pnpm typecheck && vite build",
+        "typecheck": "tsc --noEmit",
         "test": "vitest run",
         "test-coverage": "vitest run --coverage",
         "lint": "eslint src --ext .ts,.js,.mjs,.mts"
     },
     "dependencies": {
-        "livekit-client": "2.13.0",
+        "livekit-client": "2.22.4",
         "typed-emitter": "^2.1.0",
         "ts-deepmerge": "^7.0.3"
     },

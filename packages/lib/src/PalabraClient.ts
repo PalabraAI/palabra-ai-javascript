@@ -48,6 +48,8 @@ export class PalabraClient<CM extends PipelineConfigManager<any> = PipelineConfi
 
   private translationStatus: 'init' | 'ongoing' | 'paused' | 'stopped' = 'init';
 
+  private startupController?: AbortController;
+
   private connectionStatus: ConnectionState | 'init' = 'init';
 
   private ignoreAudioContext: PalabraClientData['ignoreAudioContext'];
@@ -85,29 +87,45 @@ export class PalabraClient<CM extends PipelineConfigManager<any> = PipelineConfi
   }
 
   public async startTranslation(): Promise<boolean> {
+    if (this.startupController) throw new Error('Translation startup is already in progress');
+    const controller = new AbortController();
+    this.startupController = controller;
     try {
       await this.wrapOriginalTrack();
+      controller.signal.throwIfAborted();
       const transport = await this.createSession();
+      controller.signal.throwIfAborted();
       this.initTransportHandlers();
       await transport.connect();
+      controller.signal.throwIfAborted();
       this.translationStatus = 'ongoing';
       this.emit(EVENT_START_TRANSLATION);
       return true;
     } catch (error) {
       await this.stopTranslation();
       throw error;
+    } finally {
+      if (this.startupController === controller) this.startupController = undefined;
     }
   }
 
   public async stopTranslation() {
-    await this.transport?.disconnect();
-    await this.deleteSession();
+    this.startupController?.abort();
+    const transport = this.transport;
     this.transport = null;
-    this.stopPlayback();
-    this.cleanUnusedTracks([]);
-    this.translationStatus = 'stopped';
-    this.cleanupOriginalTrack();
-    this.emit(EVENT_STOP_TRANSLATION);
+    try {
+      await transport?.disconnect();
+    } finally {
+      try {
+        await this.deleteSession();
+      } finally {
+        this.stopPlayback();
+        this.cleanUnusedTracks([]);
+        this.translationStatus = 'stopped';
+        this.cleanupOriginalTrack();
+        this.emit(EVENT_STOP_TRANSLATION);
+      }
+    }
   }
 
   public async startPlayback() {

@@ -23,6 +23,7 @@ import { PipelineConfigManager } from '~/config/PipelineConfigManager';
 import { AllowedMessageTypes, PipelineConfig } from '~/config/PipelineConfig.model';
 import { PalabraBaseEventEmitter } from '~/PalabraBaseEventEmitter';
 import { handleReceivedData } from '~/utils/data-filters';
+import { confirmWebRtcTask } from './confirmWebRtcTask';
 export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements RealtimeTransport {
   private readonly room: Room;
   private readonly streamUrl: string;
@@ -32,6 +33,12 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
   public remoteTracks = new Map<string, RemoteTrackInfo>();
   private publishTrackSettings: TrackPublishOptions;
   private configManager: PipelineConfigManager;
+  private connectionController?: AbortController;
+  private taskController?: AbortController;
+  private latestTask?: Promise<void>;
+  private taskQueue: Promise<void> = Promise.resolve();
+  private taskPublishQueue: Promise<void> = Promise.resolve();
+  private taskGeneration = 0;
   private allowedMessageTypesHash: Map<AllowedMessageTypes, number>;
 
   constructor(data: PalabraWebRtcTransportConstructor) {
@@ -85,44 +92,110 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
   }
 
   async connect(): Promise<void> {
+    if (this.connectionController) throw new Error('Connection is already in progress');
+    const controller = new AbortController();
+    this.connectionController = controller;
     try {
       console.log('✅ Connecting to LiveKit room... ' + this.streamUrl);
 
       await this.room.connect(this.streamUrl, this.accessToken, { autoSubscribe: true });
 
+      controller.signal.throwIfAborted();
       await this.publishInputAudio();
+      controller.signal.throwIfAborted();
 
-      await this.setTask(this.configManager.getConfig());
+      let confirmation = this.setTask(this.configManager.getConfig());
+      // Include settings queued during startup before reporting the client ready.
+      while (true) {
+        try {
+          await confirmation;
+        } catch (error) {
+          controller.signal.throwIfAborted();
+          if (this.latestTask === confirmation) throw error;
+        }
+        controller.signal.throwIfAborted();
+        if (this.latestTask === confirmation) break;
+        confirmation = this.latestTask;
+      }
 
       console.log('✅ Successfully connected and published audio');
     } catch (error) {
       console.error('❌ Failed to connect to LiveKit room:', error);
       throw error;
+    } finally {
+      if (this.connectionController === controller) this.connectionController = undefined;
     }
   }
 
   async disconnect(): Promise<void> {
+    this.connectionController?.abort();
+    this.cancelPendingTasks();
     try {
-      console.log('Disconnecting from LiveKit room...');
-      await this.endTask();
-      await this.room.disconnect();
-
-      this.cleanupAudioResources();
-
-      console.log('Successfully disconnected from LiveKit room');
-    } catch (error) {
-      console.error('Error during disconnect:', error);
-      throw error;
+      if (this.isConnected()) {
+        let timeout: ReturnType<typeof setTimeout>;
+        try {
+          await Promise.race([
+            this.endTask(),
+            new Promise<void>((_resolve, reject) => {
+              timeout = setTimeout(() => reject(new Error('Timed out sending end_task (2000 ms)')), 2000);
+            }),
+          ]);
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+    } finally {
+      try {
+        await this.room.disconnect();
+      } finally {
+        this.cleanupAudioResources();
+      }
     }
   }
 
-  async setTask(task: PipelineConfig): Promise<void> {
-    console.log('setTask >>>>>>', JSON.stringify(task));
-    this.createHashForAllowedMessageTypes(task.pipeline.allowed_message_types);
-    await this.sendCommand('set_task', task);
+  setTask(task: PipelineConfig): Promise<void> {
+    // ACKs have no request ID. Finish the active operation before sending a
+    // different configuration, and snapshot queued settings before they mutate.
+    const snapshot = structuredClone(task);
+    const generation = this.taskGeneration;
+    const confirmation = this.taskQueue.then(async () => {
+      if (generation !== this.taskGeneration) throw new DOMException('Task update cancelled', 'AbortError');
+      const controller = new AbortController();
+      this.taskController = controller;
+      this.createHashForAllowedMessageTypes(snapshot.pipeline.allowed_message_types);
+      try {
+        await confirmWebRtcTask(this.room, snapshot, controller.signal, (message, onSending) => {
+          // A timed-out helper may still have a LiveKit publication in flight.
+          // Never start a later publication until that one has settled.
+          const publication = this.taskPublishQueue.then(() => {
+            controller.signal.throwIfAborted();
+            onSending();
+            return this.room.localParticipant.publishData(new Uint8Array(message), { reliable: true });
+          });
+          this.taskPublishQueue = publication.catch(() => { /* allow the next attempt */ });
+          return publication;
+        });
+      } catch (error) {
+        // A failed active update invalidates updates that were already queued.
+        if (generation === this.taskGeneration) this.taskGeneration++;
+        throw error;
+      } finally {
+        controller.abort();
+        if (this.taskController === controller) this.taskController = undefined;
+      }
+    });
+    this.taskQueue = confirmation.catch(() => { /* callers receive the original rejection */ });
+    this.latestTask = confirmation;
+    return confirmation;
+  }
+
+  private cancelPendingTasks(): void {
+    this.taskGeneration++;
+    this.taskController?.abort();
   }
 
   async endTask(): Promise<void> {
+    this.cancelPendingTasks();
     console.log('endTask >>>>>>');
     await this.sendCommand('end_task', { 'force': false });
   }
@@ -133,6 +206,7 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
   }
 
   async pauseTask(): Promise<void> {
+    this.cancelPendingTasks();
     console.log('pauseTask >>>>>>');
     await this.sendCommand('pause_task', {});
     await this.getTask();
@@ -167,7 +241,7 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
   async sendCommand(messageType: string, data: unknown): Promise<void> {
     const payload = JSON.stringify({ message_type: messageType, data });
     const encoder = new TextEncoder();
-    await this.room.localParticipant.publishData(encoder.encode(payload), {});
+    await this.room.localParticipant.publishData(new Uint8Array(encoder.encode(payload)), { reliable: true });
   }
 
   private setupRoomEventHandlers(): void {
@@ -176,6 +250,8 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
     });
 
     this.room.on(RoomEvent.Disconnected, () => {
+      this.connectionController?.abort();
+      this.cancelPendingTasks();
       this.emit(EVENT_ROOM_DISCONNECTED);
       this.cleanupAudioResources();
     });
@@ -211,12 +287,12 @@ export class PalabraWebRtcTransport extends PalabraBaseEventEmitter implements R
       this.emit(EVENT_CONNECTION_STATE_CHANGED, state);
     });
 
-    this.room.on(RoomEvent.DataReceived, (payload, participant, topic) => {
+    this.room.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
       try {
         const decoder = new TextDecoder();
         const message = decoder.decode(payload);
         const data: DataReceivedEventPayload = JSON.parse(message);
-        this.handleTranslationData(data, participant, topic);
+        if (data && typeof data === 'object') this.handleTranslationData(data, participant, topic);
       } catch (error) {
         console.error('❌ Failed to parse data message:', error, 'Raw payload:', payload);
       }

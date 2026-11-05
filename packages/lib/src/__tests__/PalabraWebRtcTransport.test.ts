@@ -41,12 +41,19 @@ vi.mock('livekit-client', async () => {
       on: vi.fn((event, handler) => {
         roomEventHandlers[event] = handler;
       }),
+      off: vi.fn(),
       localParticipant: {
         publishTrack: vi.fn().mockResolvedValue(undefined),
-        publishData: vi.fn().mockResolvedValue(undefined),
+        publishData: vi.fn(async (payload) => {
+          if (JSON.parse(new TextDecoder().decode(payload)).message_type === 'set_task') {
+            const ack = new TextEncoder().encode(JSON.stringify({ message_type: 'task_status', data: { command: 'set_task', task_status: 'running' } }));
+            // @ts-expect-error: callback arguments supplied by LiveKit in production
+            roomEventHandlers[actual.RoomEvent.DataReceived as string](ack, { identity: 'palabra_translator_test' }, undefined, undefined);
+          }
+        }),
       },
-      remoteParticipants: new Map(),
-      state: 'disconnected',
+      remoteParticipants: new Map([['translator', { identity: 'palabra_translator_test' }]]),
+      state: 'connected',
     })),
     RoomEvent: actual.RoomEvent,
   };
@@ -92,7 +99,7 @@ describe('PalabraWebRtcTransport', () => {
     expect(transport.getRoom()).toBeDefined();
     expect(transport.getConnectionState()).toBeDefined();
     expect(transport.getParticipants()).toBeDefined();
-    expect(transport.getParticipants()).toEqual([]);
+    expect(transport.getParticipants()).toEqual([{ identity: 'palabra_translator_test' }]);
     expect(transport.isConnected()).toBeDefined();
   });
 
@@ -123,16 +130,12 @@ describe('PalabraWebRtcTransport', () => {
     expect((transport.getRoom().disconnect as Mock).mock.invocationCallOrder[0]).toBeLessThan(mockCleanupAudioResources.mock.invocationCallOrder[0]);
   });
 
-  it('should call setTask and its dependencies', async () => {
-    const mockSendCommand = vi.spyOn(transport, 'sendCommand').mockResolvedValue(undefined);
-    // @ts-expect-error: mock createHashForAllowedMessageTypes, which is not visible to the TS types
-    const mockCreateHashForAllowedMessageTypes = vi.spyOn(transport, 'createHashForAllowedMessageTypes').mockResolvedValue(undefined);
+  it('publishes full settings reliably and waits for the room acknowledgement', async () => {
     const config = new PipelineConfigManager().getConfig();
-    await expect(transport.setTask(config)).resolves.not.toThrow();
-    expect(mockSendCommand).toHaveBeenCalledWith('set_task', config);
-    expect(mockCreateHashForAllowedMessageTypes).toHaveBeenCalled();
-    expect(mockCreateHashForAllowedMessageTypes).toHaveBeenCalledWith(config.pipeline.allowed_message_types);
-    expect(mockCreateHashForAllowedMessageTypes.mock.invocationCallOrder[0]).toBeLessThan(mockSendCommand.mock.invocationCallOrder[0]);
+    await expect(transport.setTask(config)).resolves.toBeUndefined();
+    const [payload, options] = vi.mocked(transport.getRoom().localParticipant.publishData).mock.calls[0];
+    expect(JSON.parse(new TextDecoder().decode(payload))).toEqual({ message_type: 'set_task', data: config });
+    expect(options).toEqual({ reliable: true });
   });
 
   it('should call endTask and its dependencies', async () => {
@@ -223,7 +226,7 @@ describe('PalabraWebRtcTransport', () => {
     transport.allowedMessageTypesHash.set('translated_transcription', 1);
 
     // @ts-expect-error: mock RoomEvent.DataReceived
-    roomEventHandlers[RoomEvent.DataReceived](encoded, participant, topic);
+    roomEventHandlers[RoomEvent.DataReceived](encoded, participant, undefined, topic);
 
     expect(emitSpy).toHaveBeenCalledWith(
       EVENT_DATA_RECEIVED,

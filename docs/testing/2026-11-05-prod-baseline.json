@@ -1,0 +1,51 @@
+{
+  "environment": "prod",
+  "mode": "normal",
+  "apiOrigin": "https://api.palabra.ai",
+  "startedAt": "2026-11-05T15:54:24.574Z",
+  "sdkVersion": "2.13.0",
+  "acknowledged": true,
+  "receivedAudio": true,
+  "receivedTranscription": true,
+  "receivedTranslation": true,
+  "sentCommands": [
+    {
+      "command": "set_task",
+      "reliable": true,
+      "time": 1793894071451
+    },
+    {
+      "command": "set_task",
+      "reliable": true,
+      "time": 1793894072704
+    },
+    {
+      "command": "end_task",
+      "reliable": true,
+      "time": 1793894077826
+    }
+  ],
+  "startEvents": 1,
+  "serverVersion": "1.8.4",
+  "stage": "finished",
+  "messageCounts": {
+    "task_status": 1,
+    "undefined": 5,
+    "partial_transcription": 12,
+    "validated_transcription": 1,
+    "translated_transcription": 1
+  },
+  "ackEvent": "started",
+  "startupMs": 5231,
+  "translationStatus": "ongoing",
+  "remoteTrackCount": 0,
+  "lastAudioStats": {
+    "bytesReceived": 6371,
+    "totalAudioEnergy": 0.01346045089014721
+  },
+  "audioBytesReceived": 6371,
+  "totalAudioEnergy": 0.01346045089014721,
+  "noRetriesAfterStop": true,
+  "httpErrors": [],
+  "sessionCleanupStatus": 204
+}

@@ -555,3 +555,72 @@ Open `http://localhost:5173` in your browser to view the dev app.
 ## License
 
 MIT
+
+## WebRTC startup confirmation
+
+The client uses `livekit-client@2.22.4`. `await client.startTranslation()` and
+`await transport.connect()` now wait for a translator to confirm the task is
+running. `EVENT_START_TRANSLATION` is emitted only after that confirmation.
+Connecting to the room or successfully publishing a command is not sufficient.
+
+The transport waits for a participant with identity `palabra_translator_*`, then
+sends the complete `set_task` on the reliable default data channel. It retries
+after 1.25 seconds with 1.5x backoff capped at 5 seconds. The 30-second deadline
+includes waiting for the translator. A `task_status` response must come from a
+translator on the default topic and contain `command: "set_task"` and
+`task_status: "running"`; `started`, `updated`, `unchanged` and `resumed` events
+all qualify. Other messages do not confirm startup.
+
+`setTask()` and configuration-changing client methods also await confirmation.
+Updates are serialized and snapshot their settings when queued. The active
+operation must finish before different settings are sent. Prefer awaiting each
+update: acknowledgements have no request ID, so delayed duplicate responses
+cannot be perfectly correlated with a later request. An active failure cancels
+already-queued updates; an explicit subsequent call can retry.
+Stop/pause/disconnect cancels active and queued updates with `AbortError`; server errors and timeouts reject
+the operation and release its timers and listeners. `stopTranslation()` also
+cancels an in-progress client startup and cleans session/audio resources even
+if a disconnect command fails. The best-effort `end_task` during disconnect has
+a two-second deadline before the room is closed.
+
+Upgrade the LiveKit server before deploying the new client. The Jira reference
+test pair was JS `2.22.4` with server `1.13.10` in Chrome; dev `1.13.11` and the
+production environment require separate validation. The historical combination
+of client `2.18+` and server `1.8.4` had `/rtc/v1` to `/rtc` fallback instability.
+This dependency update alone does not establish production compatibility.
+
+
+Development: `pnpm --filter @palabra-ai/translator build` runs tests, lint,
+source typechecking and the bundle/declaration build. TypeScript uses bundler
+resolution and ES2021/DOM libraries for the updated LiveKit types. Dependency
+declarations are skipped (`skipLibCheck`): the published LiveKit 2.22.4 types
+reference `@livekit/throws-transformer/throws`, which LiveKit lists only in its
+devDependencies. This does not skip checking this SDK's source or tests.
+
+
+### Manual environment smoke checks
+
+After installing workspace dependencies, provide `PALABRA_DEV_API_KEY` and
+`PALABRA_PROD_API_KEY` in the ignored root `.env.integration.local` (or environment
+variables). Keys can also be read directly via `PALABRA_DEV_API_KEY_FILE` and
+`PALABRA_PROD_API_KEY_FILE`. Dev also accepts `PALABRA_DEV_CLIENT_ID` / `PALABRA_DEV_CLIENT_SECRET`
+for the legacy session API. Accounts must have sufficient balance. Install
+Google Chrome locally or adjust the Playwright launch channel for your browser.
+
+Run from the repository root:
+
+```sh
+node scripts/smoke-webrtc.mjs dev normal
+node scripts/smoke-webrtc.mjs dev drop-first
+node scripts/smoke-webrtc.mjs prod normal
+node scripts/smoke-webrtc.mjs prod drop-first
+```
+
+These commands create short-lived real sessions, feed the bundled English
+sample into the changed SDK, and verify the running ACK, startup event,
+source/translated transcriptions and translated audio RTP above silence energy. `drop-first`
+discards the first outgoing `set_task` to exercise retries. Each run stops the
+client and deletes its session; reports with the actual LiveKit server version
+are saved under ignored `tmp/`. API keys stay in Node; only session credentials
+are supplied to the local test browser. `dev browser-load` checks local browser
+imports without creating a session; it does not verify server compatibility.

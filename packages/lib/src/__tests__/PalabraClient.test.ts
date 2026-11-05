@@ -228,6 +228,37 @@ describe('PalabraClient', () => {
     expect(client).toBeDefined();
   });
 
+  it('does not emit a late startup event when stopped during connection', async () => {
+    let finishConnection: () => void;
+    vi.mocked(PalabraWebRtcTransport).mockImplementationOnce(() => ({
+      connect: () => new Promise<void>(resolve => { finishConnection = resolve; }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      on: vi.fn(),
+    }) as unknown as PalabraWebRtcTransport);
+    const onStarted = vi.fn();
+    client.on(EVENT_START_TRANSLATION, onStarted);
+    const starting = client.startTranslation();
+    const outcome = starting.catch(error => error);
+    await vi.waitFor(() => expect(finishConnection).toBeDefined());
+    await client.stopTranslation();
+    finishConnection();
+    expect((await outcome).name).toBe('AbortError');
+    expect(onStarted).not.toHaveBeenCalled();
+    expect(client.getTranslationStatus()).toBe('stopped');
+  });
+
+  it('releases audio and session even if disconnect fails', async () => {
+    await client.startTranslation();
+    vi.mocked(client.transport.disconnect).mockRejectedValueOnce(new Error('end_task failed'));
+    const stopped = vi.fn();
+    client.on(EVENT_STOP_TRANSLATION, stopped);
+    await expect(client.stopTranslation()).rejects.toThrow('end_task failed');
+    expect(client.transport).toBeNull();
+    expect(client.getTranslationStatus()).toBe('stopped');
+    expect(stopped).toHaveBeenCalledOnce();
+    expect(client.getApiClient().deleteStreamingSession).toHaveBeenCalledWith('session-id');
+  });
+
   it('should startTranslation and emit EVENT_START_TRANSLATION', async () => {
     const emitSpy = vi.spyOn(client as unknown as { emit: (...args: unknown[]) => void }, 'emit');
     const result = await client.startTranslation();
