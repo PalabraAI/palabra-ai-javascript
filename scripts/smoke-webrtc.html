@@ -1,0 +1,90 @@
+<!doctype html><html><body><script type="module">
+import { PalabraClient, EVENT_DATA_RECEIVED, EVENT_REMOTE_TRACKS_UPDATE, EVENT_START_TRANSLATION } from '/packages/lib/src/lib.ts';
+window.runSmoke = async (credentials, mode) => {
+  const result = { acknowledged: false, receivedAudio: false, receivedTranscription: false, receivedTranslation: false, sentCommands: [], startEvents: 0, serverVersion: null };
+  window.smokeProgress = result;
+  result.stage = 'audio-setup';
+  const context = new AudioContext();
+  await context.resume();
+  const audio = await context.decodeAudioData(await (await fetch('/packages/playground/public/sample-en.wav')).arrayBuffer());
+  const source = context.createBufferSource();
+  source.buffer = audio;
+  source.loop = true;
+  const destination = context.createMediaStreamDestination();
+  source.connect(destination);
+  source.start();
+  const client = new PalabraClient({
+    createSession: async () => credentials,
+    translateFrom: 'en', translateTo: 'es', audioContext: context, ignoreAudioContext: true,
+    handleOriginalTrack: async () => destination.stream.getAudioTracks()[0],
+  });
+  let room;
+  let remoteTracks = [];
+  const originalCreate = client.createSession.bind(client);
+  client.createSession = async () => {
+    const transport = await originalCreate();
+    room = transport.getRoom();
+    const publish = room.localParticipant.publishData.bind(room.localParticipant);
+    room.localParticipant.publishData = async (payload, options) => {
+      const command = JSON.parse(new TextDecoder().decode(payload));
+      result.sentCommands.push({ command: command.message_type, reliable: options?.reliable, time: Date.now() });
+      if (mode === 'drop-first' && command.message_type === 'set_task' && result.sentCommands.filter(item => item.command === 'set_task').length === 1) return;
+      return publish(payload, options);
+    };
+    return transport;
+  };
+  client.on(EVENT_START_TRANSLATION, () => { result.startEvents++; });
+  result.messageCounts = {};
+  client.on(EVENT_DATA_RECEIVED, ({ payload }) => {
+    result.messageCounts[payload.message_type] = (result.messageCounts[payload.message_type] || 0) + 1;
+    if (payload.message_type === 'task_status' && payload.data?.command === 'set_task' && payload.data?.task_status === 'running') {
+      result.acknowledged = true;
+      result.ackEvent = payload.data.event;
+    }
+    if (payload.message_type === 'translated_transcription') result.receivedTranslation = true;
+    if (['validated_transcription', 'partial_transcription', 'translated_transcription'].includes(payload.message_type)) result.receivedTranscription = true;
+    if (payload.message_type === 'error') result.serverError = payload.data;
+  });
+  client.on(EVENT_REMOTE_TRACKS_UPDATE, tracks => {
+    remoteTracks = tracks;
+    result.remoteTrackCount = tracks.length;
+  });
+  try {
+    const before = performance.now();
+    result.stage = 'starting';
+    await client.startTranslation();
+    await client.startPlayback();
+    result.stage = 'waiting-for-audio';
+    result.startupMs = Math.round(performance.now() - before);
+    result.serverVersion = room.serverInfo?.version;
+    result.translationStatus = client.getTranslationStatus();
+    const until = Date.now() + 20000;
+    while (Date.now() < until && !(result.receivedAudio && result.receivedTranslation)) {
+      for (const track of remoteTracks) {
+        const stats = await track.remoteAudioTrack.getReceiverStats();
+        if (stats) result.lastAudioStats = { bytesReceived: stats.bytesReceived, totalAudioEnergy: stats.totalAudioEnergy };
+        if (stats?.bytesReceived > 0 && stats?.totalAudioEnergy > 0.00001) {
+          result.receivedAudio = true;
+          result.audioBytesReceived = stats.bytesReceived;
+          result.totalAudioEnergy = stats.totalAudioEnergy;
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  } catch (error) {
+    result.error = error.message;
+    result.serverVersion = room?.serverInfo?.version;
+  } finally {
+    const beforeStop = result.sentCommands.filter(item => item.command === 'set_task').length;
+    result.stage = 'cleanup';
+    try { await client.cleanup(); } catch (error) { result.cleanupError = error.message; }
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    result.noRetriesAfterStop = beforeStop === result.sentCommands.filter(item => item.command === 'set_task').length;
+    source.stop();
+    destination.stream.getTracks().forEach(track => track.stop());
+    await context.close();
+  }
+  result.stage = 'finished';
+  return result;
+};
+</script></body></html>

@@ -1,0 +1,33 @@
+{
+  "environment": "prod",
+  "mode": "normal",
+  "apiOrigin": "https://api.palabra.ai",
+  "startedAt": "2026-11-05T15:51:58.642Z",
+  "sdkVersion": "2.22.4",
+  "acknowledged": false,
+  "receivedAudio": false,
+  "receivedTranscription": false,
+  "sentCommands": [],
+  "startEvents": 0,
+  "serverVersion": "1.8.4",
+  "stage": "finished",
+  "messageCounts": {
+    "undefined": 11
+  },
+  "remoteTrackCount": 0,
+  "error": "Room disconnected before task confirmation",
+  "noRetriesAfterStop": true,
+  "httpErrors": [
+    {
+      "host": "streaming.palabra.ai",
+      "path": "/livekit/<test-room>/rtc/v1/validate",
+      "status": 404
+    },
+    {
+      "host": "streaming.palabra.ai",
+      "path": "/livekit/<test-room>/rtc/v1/validate",
+      "status": 404
+    }
+  ],
+  "sessionCleanupStatus": 204
+}

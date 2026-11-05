@@ -102,8 +102,8 @@ importers:
   packages/lib:
     dependencies:
       livekit-client:
-        specifier: 2.13.0
-        version: 2.13.0
+        specifier: 2.22.4
+        version: 2.22.4(@types/dom-mediacapture-record@1.0.22)
       ts-deepmerge:
         specifier: ^7.0.3
         version: 7.0.3
@@ -710,8 +710,8 @@ packages:
   '@livekit/mutex@1.1.1':
     resolution: {integrity: sha512-EsshAucklmpuUAfkABPxJNhzj9v2sG7JuzFDL4ML1oJQSV14sqrpTYnsaOudMAw9yOaW53NU3QQTlUQoRs4czw==}
 
-  '@livekit/protocol@1.38.0':
-    resolution: {integrity: sha512-XX6ulvsE1XCN18LVf3ydHN7Ri1Z1M1P5dQdjnm5nVDsSqUL12Vbo/4RKcRlCEXAg2qB62mKjcaVLXVwkfXggkg==}
+  '@livekit/protocol@1.52.1':
+    resolution: {integrity: sha512-X8DxKlNbzk6Lh+v630+mjdFHSotdAFwIyzxSRSUql2DbTxCnlpa7JsvFGc6Na3mXiex2OFh0iiQtWwOBP0rIYA==}
 
   '@microsoft/api-extractor-model@7.30.6':
     resolution: {integrity: sha512-znmFn69wf/AIrwHya3fxX6uB5etSIn6vg4Q4RB/tb5VDDs1rqREc+AvMC/p19MUN13CZ7+V/8pkYPTj7q8tftg==}
@@ -1035,6 +1035,9 @@ packages:
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
+
+  '@types/dom-mediacapture-record@1.0.22':
+    resolution: {integrity: sha512-mUMZLK3NvwRLcAAT9qmcK+9p7tpU2FHdDsntR3YI4+GY88XrgG4XiE7u1Q2LAN2/FZOz/tdMDC3GQCR4T8nFuw==}
 
   '@types/estree@1.0.7':
     resolution: {integrity: sha512-w28IoSUCJpidD/TGviZwwMJckNESJZXFu7NBZ5YJ4mEUnNraUn9Pm8HSZm/jDF1pDWYKspWE7oVphigUPRakIQ==}
@@ -1901,6 +1904,9 @@ packages:
   jju@1.4.0:
     resolution: {integrity: sha512-8wb9Yw966OSxApiCt0K3yNJL8pnNeIv+OEq2YMidz4FKP6nonSRoOXc80iXY4JaN2FC11B9qsNmDsm+ZOfMROA==}
 
+  jose@6.2.15:
+    resolution: {integrity: sha512-qdF6ewcZARtef63fJ9AKKZPgxw+t7USH6HLXYcD4CrdmSvDp79rpJSPFEKc90QBeGS63u1KQtN2MZQHC0yDIzA==}
+
   js-beautify@1.15.4:
     resolution: {integrity: sha512-9/KXeZUKKJwqCXUdBxFJ3vPh467OCckSBmYDwSK/EtV090K+iMJ7zx2S3HLVDIWFQdqMIsZWbnaGiba18aWhaA==}
     engines: {node: '>=14'}
@@ -2035,8 +2041,10 @@ packages:
     resolution: {integrity: sha512-xi6IyHML+c9+Q3W0S4fCQJOym42pyurFiJUHEcEyHS0CeKzia4yZDEsLlqOFykxOdHpNy0NmvVO31vcSqAxJCg==}
     engines: {node: '>= 12.0.0'}
 
-  livekit-client@2.13.0:
-    resolution: {integrity: sha512-Q2FAQbJt0zFBdOHIom1YRfsIYIdTC2dxJfus084w4ni4ZHwNYZ9GZQcp9zpuxFg1O36fTobLCn3B1JCSY834nw==}
+  livekit-client@2.22.4:
+    resolution: {integrity: sha512-UJ5K8gqP8uIO+tjhGeF+s6SzgLfxZKPxQjSqzzkF298QNYMnhYmXGQRMMh3GnsfaeswnsHHMSogMeb7SocH2zw==}
+    peerDependencies:
+      '@types/dom-mediacapture-record': ^1
 
   local-pkg@1.1.1:
     resolution: {integrity: sha512-WunYko2W1NcdfAFpuLUoucsgULmgDBRkdxHxWQ7mK0cQqwPiy8E1enjuRBrhLtZkB5iScJ1XIPdhVEFK8aOLSg==}
@@ -2068,6 +2076,10 @@ packages:
   lru-cache@6.0.0:
     resolution: {integrity: sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==}
     engines: {node: '>=10'}
+
+  machina@7.0.1:
+    resolution: {integrity: sha512-0Xkgs8NeBvO2hW6bjJT8ewLWrMfh1haMPstaghpASWjXkLjRhtDiaJG1Kb7mslaOHxZYxpH7PIjpmirRVYbMMA==}
+    engines: {node: '>=22.22'}
 
   magic-string@0.30.17:
     resolution: {integrity: sha512-sNPKHvyjVf7gyjwS4xGTaW/mCnF8wnjtifKBEhxfZ7E/S8tQ0rssrwGNn6q8JH/ohItJfSQp9mBtQYuTlH5QnA==}
@@ -2541,9 +2553,6 @@ packages:
     peerDependencies:
       typescript: '>=4.8.4'
 
-  ts-debounce@4.0.0:
-    resolution: {integrity: sha512-+1iDGY6NmOGidq7i7xZGA4cm8DAa6fqdYcvO5Z6yBevH++Bdo9Qt/mN0TzHUgcCcKv1gmh9+W5dHqz8pMWbCbg==}
-
   ts-deepmerge@7.0.3:
     resolution: {integrity: sha512-Du/ZW2RfwV/D4cmA5rXafYjBQVuvu4qGiEEla4EmEHVHgRdx68Gftx7i66jn2bzHPwSVZY36Ae6OuDn9el4ZKA==}
     engines: {node: '>=14.13.1'}
@@ -2783,8 +2792,8 @@ packages:
     resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
     engines: {node: '>=12'}
 
-  webrtc-adapter@9.0.3:
-    resolution: {integrity: sha512-5fALBcroIl31OeXAdd1YUntxiZl1eHlZZWzNg3U4Fn+J9/cGL3eT80YlrsWGvj2ojuz1rZr2OXkgCzIxAZ7vRQ==}
+  webrtc-adapter@9.0.6:
+    resolution: {integrity: sha512-CHbl2ZQbxx164IgWRgzJno4hWtM4tFbRam1QfI3Yxhs3w/DvqluVxVWeXs3oL5/fbGkSNLKo0Ty5MgUWceNhog==}
     engines: {node: '>=6.0.0', npm: '>=3.10.0'}
 
   whatwg-encoding@3.1.1:
@@ -3332,7 +3341,7 @@ snapshots:
 
   '@livekit/mutex@1.1.1': {}
 
-  '@livekit/protocol@1.38.0':
+  '@livekit/protocol@1.52.1':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
 
@@ -3606,6 +3615,8 @@ snapshots:
       '@types/deep-eql': 4.0.2
 
   '@types/deep-eql@4.0.2': {}
+
+  '@types/dom-mediacapture-record@1.0.22': {}
 
   '@types/estree@1.0.7': {}
 
@@ -4598,6 +4609,8 @@ snapshots:
 
   jju@1.4.0: {}
 
+  jose@6.2.15: {}
+
   js-beautify@1.15.4:
     dependencies:
       config-chain: 1.1.13
@@ -4721,17 +4734,19 @@ snapshots:
       lightningcss-win32-arm64-msvc: 1.30.1
       lightningcss-win32-x64-msvc: 1.30.1
 
-  livekit-client@2.13.0:
+  livekit-client@2.22.4(@types/dom-mediacapture-record@1.0.22):
     dependencies:
       '@livekit/mutex': 1.1.1
-      '@livekit/protocol': 1.38.0
+      '@livekit/protocol': 1.52.1
+      '@types/dom-mediacapture-record': 1.0.22
       events: 3.3.0
+      jose: 6.2.15
       loglevel: 1.9.2
+      machina: 7.0.1
       sdp-transform: 2.15.0
-      ts-debounce: 4.0.0
       tslib: 2.8.1
       typed-emitter: 2.1.0
-      webrtc-adapter: 9.0.3
+      webrtc-adapter: 9.0.6
 
   local-pkg@1.1.1:
     dependencies:
@@ -4760,6 +4775,8 @@ snapshots:
   lru-cache@6.0.0:
     dependencies:
       yallist: 4.0.0
+
+  machina@7.0.1: {}
 
   magic-string@0.30.17:
     dependencies:
@@ -5197,8 +5214,6 @@ snapshots:
     dependencies:
       typescript: 5.8.3
 
-  ts-debounce@4.0.0: {}
-
   ts-deepmerge@7.0.3: {}
 
   tslib@2.8.1: {}
@@ -5442,7 +5457,7 @@ snapshots:
 
   webidl-conversions@7.0.0: {}
 
-  webrtc-adapter@9.0.3:
+  webrtc-adapter@9.0.6:
     dependencies:
       sdp: 3.2.0
 
